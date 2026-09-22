@@ -1,0 +1,28 @@
+{
+  "name": "recolecta-plus-backend",
+  "version": "1.0.0",
+  "description": "API REST Backend para Recolecta+ con Node.js, Express y PostgreSQL/PostGIS",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": [
+    "express",
+    "postgis",
+    "nodejs",
+    "recolecta",
+    "api"
+  ],
+  "author": "Recolecta+ Team",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "pg": "^8.12.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}
