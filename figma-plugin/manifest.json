@@ -1,0 +1,9 @@
+{
+  "name": "Recolecta+ · Generador de diseño v2",
+  "id": "recolecta-plus-generador-v2",
+  "api": "1.0.0",
+  "main": "code.js",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "networkAccess": { "allowedDomains": ["none"] }
+}
