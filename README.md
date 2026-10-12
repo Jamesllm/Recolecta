@@ -2,52 +2,75 @@
 
 Sistema inteligente y georreferenciado para la gestión comunitaria y optimización de recolección de residuos urbanos.
 
----
-
-## 🏛️ Arquitectura del Sistema
-
-El ecosistema de **Recolecta+** se organiza en los siguientes módulos:
-
-1. **Backend API REST (Fase 2)**:
-   - Construido en **Node.js** y **Express**.
-   - Conectado a **PostgreSQL** con la extensión geoespacial **PostGIS**.
-   - Soporta registro y consulta de incidentes con coordenadas de alta precisión (WGS84 EPSG:4326).
-   - Configurado con políticas de CORS para clientes web (React) y móviles (React Native / Expo).
-   - Más detalles en [backend/README.md](file:///c:/Users/Ronal%20Llapapasca/Documents/Universidad/2026-2/Innovacion/Recolecta+/backend/README.md).
-
-2. **Módulo de Inteligencia Artificial & Clustering (Fase 3)**:
-   - Microservicio en **Python 3.11+** (`cluster_service.py`).
-   - Algoritmo de agrupamiento no supervisado (**K-Means**) con Scikit-Learn y Pandas.
-   - Extrae puntos en estado `pending`, calcula centroides geográficos y los persiste en PostGIS para la planificación de rutas de recojo.
-
-3. **Frontend Web Administrativo (Command Center)**:
-   - Construido en **Next.js 16** (App Router), **Tailwind CSS**, **Lucide React** y mapas **Leaflet**.
-   - Incluye Dashboard con mapa de calor y círculos de densidad (70/30), consola de optimización de rutas por IA con polylines hacia el Relleno Sanitario, y tabla interactiva de gestión de incidentes con filtros y drawer lateral.
-   - Código en `recolectaplus/`.
+Proyecto del curso **Innovación y Transformación Digital** (UTP, 2026-2) · **Grupo 3**: Ronal James Llapapasca Montes (Product Owner), Carlos Andrés Bustamante Suclupe (Scrum Master), Danna Jael Miñan Gonzalez, Víctor Miguel Alonso Reyes Flores y Ángel Eduardo Salas Bances.
 
 ---
 
-## 🚀 Inicio Rápido
+## 🧭 Sprint 1 (del 10 al 17 de octubre de 2026)
 
-### 1. Backend API REST (Node.js)
+| Historia | Qué se puede hacer | Dónde |
+|---|---|---|
+| US-01 Registro de ciudadano | Crear cuenta con correo y contraseña validados y su departamento, provincia y distrito (ubigeo); iniciar sesión y mantener la sesión | App móvil · `POST /api/register`, `/api/login` |
+| US-02 Reporte con foto y GPS | Tomar o elegir la foto, detectar la ubicación GPS (o ajustarla en el mapa), clasificar el residuo y recibir un código de seguimiento | App móvil · `POST /api/reports` (foto en Amazon S3, punto en PostGIS) |
+| US-03 Mapa de reportes cercanos | Ver en el mapa los reportes a menos de 500 m, filtrar por estado y ver el detalle de cada punto | App móvil · `GET /api/reports/nearby` |
+
+Diseño de referencia: [prototipo en Figma](https://www.figma.com/proto/ay8UeV1wq2jKnHS90bKZz3/Recolecta-?node-id=25-5&t=aOT8hrXgXpSaUAUk-1).
+
+Avance hacia el Sprint 2: el panel municipal muestra los reportes reales, ejecuta el agrupamiento K-Means y sugiere el orden de recojo de cada clúster.
+
+---
+
+## 🏛️ Arquitectura
+
+| Módulo | Tecnología | Carpeta |
+|---|---|---|
+| App móvil del vecino | Expo SDK 57 (React Native), Expo Router, Leaflet + OpenStreetMap (WebView), expo-image-picker, expo-location | [`mobile/`](mobile/README.md) |
+| API REST | Node.js, Express, PostgreSQL + PostGIS, JWT, Amazon S3 | [`backend/`](backend/README.md) |
+| Agrupamiento K-Means (IA) | Python, Scikit-Learn, Pandas | [`backend/ai/`](backend/ai/cluster_service.py) |
+| Panel municipal | Next.js 16, Tailwind CSS, Leaflet + OpenStreetMap | [`frontend/`](frontend/README.md) |
+
+---
+
+## 🚀 Inicio rápido
+
+Requisitos: Node.js 18+, Python 3.11+, PostgreSQL 14+ **con PostGIS**, un bucket de Amazon S3 y la app **Expo Go** en el celular.
+
+| Servicio | Dirección |
+|---|---|
+| API REST | `http://localhost:4000/api` (en el celular: `http://<IP-de-la-PC>:4000/api`) |
+| Panel web | `http://localhost:3000` |
+
+### 1. API y base de datos
 ```bash
 cd backend
+cp .env.example .env      # completar DB_PASSWORD, JWT_SECRET y las variables de S3
 npm install
+npm run db:init           # crea la base con PostGIS y carga el ubigeo del Perú
 npm run dev
 ```
-Ver detalles completos en [backend/README.md](file:///c:/Users/Ronal%20Llapapasca/Documents/Universidad/2026-2/Innovacion/Recolecta+/backend/README.md).
 
-### 2. Frontend Web Administrativo (Next.js)
+### 2. App móvil
 ```bash
-cd recolectaplus
+cd mobile
+cp .env.example .env      # EXPO_PUBLIC_API_URL con la IP que muestra el backend al iniciar
+npm install
+npx expo start
+```
+Escanear el código QR con Expo Go. El celular y la PC deben estar en la misma red Wi-Fi y el firewall de Windows debe permitir el puerto 4000.
+
+### 3. Panel web
+```bash
+cd frontend
+cp .env.example .env.local
 npm install
 npm run dev
 ```
-Acceder a [http://localhost:3000](http://localhost:3000).
 
-### 3. Módulo de IA (Python)
+### 4. Agrupamiento K-Means
 ```bash
 cd backend/ai
-python cluster_service.py --clusters 3
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
 ```
-
+Luego se ejecuta desde el panel (**Ejecutar agrupamiento K-Means**) o por consola con `python cluster_service.py -k 3`.
