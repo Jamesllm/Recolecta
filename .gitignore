@@ -1,0 +1,35 @@
+# Environment variables & secrets
+.env
+.env*.local
+*.local
+.env - copia.local
+
+# Dependencies
+node_modules/
+package-lock.json.bak
+
+# Next.js build
+.next/
+out/
+
+# Expo / React Native
+.expo/
+dist/
+web-build/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+venv/
+.venv/
+env/
+
+# Operating System & IDEs
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
