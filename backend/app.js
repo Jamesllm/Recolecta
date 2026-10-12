@@ -6,6 +6,7 @@
 const express = require('express');
 const cors = require('cors');
 const apiRoutes = require('./src/routes');
+const storage = require('./src/services/storage');
 const { notFoundHandler, globalErrorHandler } = require('./src/middlewares/errorHandler');
 
 const app = express();
@@ -73,6 +74,11 @@ if (process.env.NODE_ENV === 'development') {
 // 3. Registro de Rutas
 // ==========================================
 app.use('/api', apiRoutes);
+
+// Fotos guardadas en disco cuando STORAGE_DRIVER=local (en S3 se entregan URLs firmadas)
+if (storage.DRIVER === 'local') {
+  app.use('/uploads', express.static(storage.LOCAL_DIR));
+}
 
 // Endpoint raíz informativo
 app.get('/', (req, res) => {

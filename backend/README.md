@@ -1,8 +1,8 @@
 # Recolecta+ | Backend API REST & Módulo de IA
 
-Backend para la plataforma **Recolecta+**, compuesto por:
-1. **API REST en Node.js + Express**: Gestión de incidentes de residuos georreferenciados con PostgreSQL y extensión espacial PostGIS.
-2. **Módulo de IA en Python**: Microservicio autónomo para clustering geoespacial (K-Means) sobre PostGIS para optimización de recojo y rutas.
+Backend de **Recolecta+**, compuesto por:
+1. **API REST en Node.js + Express**: cuentas de vecinos, reportes georreferenciados con foto (PostgreSQL + PostGIS y Amazon S3) e incidentes para el panel municipal.
+2. **Módulo de IA en Python**: agrupamiento espacial K-Means de los reportes pendientes.
 
 ---
 
@@ -10,239 +10,146 @@ Backend para la plataforma **Recolecta+**, compuesto por:
 
 ```text
 backend/
-├── .env.example                     # Plantilla de variables de entorno para la API
-├── package.json                     # Dependencias de Node.js y scripts
-├── server.js                        # Punto de entrada y orquestación del servidor HTTP
-├── app.js                           # Configuración de Express, CORS y middlewares
+├── .env.example                     # Plantilla de variables de entorno
+├── package.json                     # Dependencias y scripts (dev, start, db:init)
+├── server.js                        # Punto de entrada: valida configuración, BD y almacenamiento
+├── app.js                           # Express, CORS y middlewares
 ├── database/
-│   └── schema.sql                   # DDL de PostgreSQL con PostGIS e índices espaciales
+│   ├── schema.sql                   # Ubigeo, users, incidents y clusters (PostGIS, índices GiST)
+│   └── ubigeo/                      # departamentos.json, provincias.json y distritos.json
+├── scripts/
+│   └── initDb.js                    # Crea la base, aplica schema.sql y carga el ubigeo
 ├── src/
-│   ├── config/
-│   │   └── db.js                    # Pool de conexión pg con PostgreSQL y healthcheck PostGIS
+│   ├── config/db.js                 # Pool de conexión pg y verificación de PostGIS
 │   ├── controllers/
-│   │   └── incidentController.js    # Controlador con queries PostGIS (ST_MakePoint, ST_X, ST_Y)
-│   ├── routes/
-│   │   ├── incidentRoutes.js        # Endpoints de incidentes (/api/incidents)
-│   │   └── index.js                 # Enrutador principal y endpoint /api/health
-│   └── middlewares/
-│       └── errorHandler.js          # Manejador global de errores (404, 500, PostGIS)
+│   │   ├── authController.js        # Registro, inicio de sesión y perfil (US-01)
+│   │   ├── reportController.js      # Reportes con foto y GPS, reportes cercanos (US-02, US-03)
+│   │   ├── incidentController.js    # Incidentes para el panel municipal
+│   │   └── clusterController.js     # Clústeres K-Means y ejecución del servicio Python
+│   ├── middlewares/
+│   │   ├── auth.js                  # JWT (Authorization: Bearer)
+│   │   └── errorHandler.js          # Errores 404 / 500 / PostGIS
+│   ├── routes/                      # /api/register, /api/login, /api/me, /api/reports, /api/incidents, /api/clusters
+│   └── services/storage.js          # Fotos en Amazon S3 (URLs firmadas) o en disco para desarrollo
 └── ai/
-    ├── .env.example                 # Variables de entorno para el servicio Python
-    ├── requirements.txt             # Dependencias Python (psycopg2, pandas, scikit-learn)
-    └── cluster_service.py           # Script autónomo de clustering K-Means sobre PostGIS
+    ├── requirements.txt             # psycopg2, pandas, scikit-learn, numpy, python-dotenv
+    └── cluster_service.py           # K-Means sobre los reportes pendientes
 ```
 
 ---
 
 ## 🛠️ Requisitos Previos
 
-- **Node.js**: v18.x o superior (recomendado v20+)
-- **Python**: v3.11 o superior
-- **PostgreSQL**: v14+ con extensión **PostGIS** habilitada
+- **Node.js** 18 o superior (recomendado 20+)
+- **Python** 3.11 o superior
+- **PostgreSQL** 14+ con **PostGIS** (en Windows: *Stack Builder → Spatial Extensions → PostGIS*)
+- Un bucket de **Amazon S3** para las fotos (ver más abajo)
 
 ---
 
-## 🗄️ 1. Configuración de Base de Datos (PostgreSQL + PostGIS)
+## ⚙️ 1. Configuración
 
-1. Crear la base de datos en PostgreSQL:
-   ```bash
-   createdb -U postgres recolecta_plus
-   ```
-
-2. Ejecutar el script DDL para habilitar la extensión espacial y crear las tablas:
-   ```bash
-   psql -U postgres -d recolecta_plus -f database/schema.sql
-   ```
-
-El script inicializará:
-- Extensión `postgis`.
-- Tipos ENUM `incident_status` (`pending`, `assigned`, `resolved`) y `cluster_status`.
-- Tabla `clusters` con columna espacial `centroid GEOMETRY(Point, 4326)` e índice GiST.
-- Tabla `incidents` con columna espacial `location GEOMETRY(Point, 4326)` e índice GiST.
-
----
-
-## 🚀 2. Ejecución del Servidor Backend (Node.js + Express)
-
-### Variables de Entorno
-Copia el archivo `.env.example` como `.env` en la carpeta `backend/`:
 ```bash
 cp .env.example .env
 ```
-Asegúrate de configurar los valores de conexión:
-```env
-PORT=3000
-NODE_ENV=development
 
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=recolecta_plus
-DB_USER=postgres
-DB_PASSWORD=tu_contraseña
+| Variable | Descripción |
+|---|---|
+| `PORT` | Puerto de la API (4000) |
+| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | Conexión a PostgreSQL (o `DATABASE_URL`, p. ej. Neon) |
+| `CORS_ORIGINS` | Orígenes web permitidos (el panel corre en `http://localhost:3000`) |
+| `JWT_SECRET` | Cadena aleatoria de 32 caracteres o más |
+| `STORAGE_DRIVER` | `s3` (Amazon S3) o `local` (carpeta `uploads/`, solo desarrollo) |
+| `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `S3_BUCKET` | Credenciales de S3 |
+| `PYTHON_BIN` | Opcional: intérprete de Python para K-Means (por defecto `ai/venv`) |
 
-# Orígenes permitidos por CORS
-CORS_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost:8081,exp://localhost:8081
-```
+**Amazon S3:** el bucket puede ser privado (se recomienda bloquear el acceso público). La API sube cada foto con `PutObject` y entrega URLs firmadas de 1 hora con `GetObject`, así que el usuario IAM solo necesita los permisos `s3:PutObject` y `s3:GetObject` sobre `arn:aws:s3:::<bucket>/reports/*`.
 
-### Instalación y Ejecución
+---
+
+## 🗄️ 2. Base de datos
+
 ```bash
-# Instalar dependencias
 npm install
-
-# Modo desarrollo (con recarga automática)
-npm run dev
-
-# Modo producción
-npm start
+npm run db:init
 ```
 
-El servidor validará la conexión y extensión PostGIS al iniciar:
+`db:init` crea la base `recolecta_plus` si no existe, aplica `database/schema.sql` y carga el ubigeo (25 departamentos, 195 provincias y 1846 distritos) desde `database/ubigeo/`. Se puede ejecutar varias veces: actualiza los nombres sin duplicar filas.
+- Extensión `postgis` y tipos `incident_status`, `cluster_status` y `user_role`.
+- `departamentos`, `provincias` y `distritos`: ubigeo del Perú.
+- `users`: vecinos y gestores (correo único, contraseña con bcrypt y `ubigeo` del distrito).
+- `incidents`: reportes con `location GEOMETRY(Point, 4326)`, clave de la foto en S3, categoría, tamaño, dirección y precisión GPS.
+- `clusters`: centroides calculados por K-Means.
+
+---
+
+## 🚀 3. Ejecución
+
+```bash
+npm run dev     # desarrollo (nodemon)
+npm start       # producción
+```
+
+Al iniciar, el servidor valida `JWT_SECRET`, la conexión con PostGIS y el almacenamiento de fotos, y muestra la dirección que debe usar la app móvil:
+
 ```text
-🚀 Iniciando servidor Recolecta+...
- Conexión a PostgreSQL establecida con éxito.
-   - Base de datos: recolecta_plus
-   - PostGIS: Activo
- Servidor Express escuchando activamente en el puerto 3000
+ Servidor Express escuchando activamente en el puerto 4000
+   - App móvil (misma red Wi-Fi): http://192.168.x.x:4000/api
 ```
 
 ---
 
-## 📡 Endpoints de la API REST
+## 📡 4. Endpoints
 
-Prefijo base: `http://localhost:3000/api`
+Prefijo base: `http://localhost:4000/api`. Los endpoints marcados con 🔒 requieren `Authorization: Bearer <token>`.
 
-### Health Check
-- **GET** `/api/health`
-  - Retorna el estado operativo del servicio.
+### Cuentas (US-01)
+| Método | Ruta | Descripción |
+|---|---|---|
+| POST | `/register` | `{ full_name, email, password, ubigeo, accept_terms }` (`ubigeo`: código de 6 dígitos del distrito). Contraseña de 8+ caracteres con letra y número. Responde `201` con `{ user, token }` o `409` si el correo existe. |
+| POST | `/login` | `{ email, password }` → `{ user, token }` (JWT de 7 días). |
+| GET 🔒 | `/me` | Datos del usuario de la sesión. |
 
-### Incidentes (`/api/incidents`)
+### Ubigeo
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/ubigeo/departamentos` | Departamentos del Perú. |
+| GET | `/ubigeo/departamentos/:id/provincias` | Provincias de un departamento. |
+| GET | `/ubigeo/provincias/:id/distritos` | Distritos de una provincia (el `id` es el ubigeo). |
 
-#### 1. Registrar Nuevo Incidente
-- **POST** `/api/incidents`
-- **Headers**: `Content-Type: application/json`
-- **Body**:
-  ```json
-  {
-    "user_id": "usr_12345",
-    "photo_url": "https://storage.recolecta.pe/photos/inc_1.jpg",
-    "category": "Basura acumulada",
-    "estimated_size": "medium",
-    "description": "Bolsas de residuos en la esquina del parque",
-    "latitude": -12.046374,
-    "longitude": -77.042793
-  }
-  ```
-- **PostGIS interno**: `ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)`
-- **Respuesta** (201 Created):
-  ```json
-  {
-    "success": true,
-    "message": "Incidente registrado exitosamente.",
-    "data": {
-      "id": 1,
-      "user_id": "usr_12345",
-      "category": "Basura acumulada",
-      "estimated_size": "medium",
-      "description": "Bolsas de residuos en la esquina del parque",
-      "photo_url": "https://storage.recolecta.pe/photos/inc_1.jpg",
-      "status": "pending",
-      "longitude": -77.042793,
-      "latitude": -12.046374,
-      "created_at": "2026-09-20T18:30:00.000Z",
-      "updated_at": "2026-09-20T18:30:00.000Z"
-    }
-  }
-  ```
+### Reportes de la app del vecino (US-02 y US-03)
+| Método | Ruta | Descripción |
+|---|---|---|
+| POST 🔒 | `/reports` | `multipart/form-data`: `photo` (JPG/PNG/WEBP/HEIC, máx. 8 MB), `latitude`, `longitude`, `gps_accuracy_m?`, `address?`, `category` (`Orgánico`, `Inorgánico`, `Escombros`, `Peligroso`), `estimated_size` (`small`, `medium`, `large`), `description?` (≤ 280). Guarda la foto en S3 y el punto en PostGIS con estado `pending`; responde el código de seguimiento (`RL-0001`). |
+| GET 🔒 | `/reports/nearby?lat=&lng=&radius=500&status=` | Reportes dentro del radio en metros (`ST_DWithin` sobre `geography`, máx. 5000), ordenados por distancia. |
+| GET 🔒 | `/reports/mine` | Reportes del vecino. |
+| GET 🔒 | `/reports/:id` | Detalle de un reporte. |
 
-#### 2. Consultar Incidentes
-- **GET** `/api/incidents`
-- **Query Params opcionales**:
-  - `status`: `pending` | `assigned` | `resolved`
-  - `category`: ej. `Basura acumulada`
-- **PostGIS interno**: Proyecta decimales nativos mediante `ST_X(location::geometry)` y `ST_Y(location::geometry)`.
-- **Respuesta** (200 OK):
-  ```json
-  {
-    "success": true,
-    "count": 1,
-    "data": [
-      {
-        "id": 1,
-        "user_id": "usr_12345",
-        "category": "Basura acumulada",
-        "status": "pending",
-        "longitude": -77.042793,
-        "latitude": -12.046374,
-        "cluster_id": null,
-        "created_at": "2026-09-20T18:30:00.000Z"
-      }
-    ]
-  }
-  ```
+### Panel municipal
+| Método | Ruta | Descripción |
+|---|---|---|
+| GET | `/incidents?status=&category=` | Reportes con nombre del vecino y URL de la foto. |
+| PATCH | `/incidents/:id/status` | `{ status: 'pending' \| 'assigned' \| 'resolved' }`. |
+| GET | `/clusters` | Clústeres activos con sus reportes. |
+| POST | `/clusters/run` | `{ k }`: ejecuta `ai/cluster_service.py` sobre los reportes pendientes. |
 
-#### 3. Actualizar Estado de un Incidente
-- **PATCH** `/api/incidents/:id/status`
-- **Body**:
-  ```json
-  {
-    "status": "assigned"
-  }
-  ```
-- **Valores permitidos**: `"pending"`, `"assigned"`, `"resolved"`.
-- **Respuesta** (200 OK):
-  ```json
-  {
-    "success": true,
-    "message": "El estado del incidente #1 ha sido actualizado a 'assigned'.",
-    "data": {
-      "id": 1,
-      "status": "assigned",
-      "updated_at": "2026-09-20T18:35:00.000Z"
-    }
-  }
-  ```
+> Los endpoints del panel todavía no exigen sesión de gestor; el inicio de sesión del panel corresponde a la US-10.
 
 ---
 
-## 🤖 3. Módulo de IA y Clustering Geoespacial (Python)
+## 🤖 5. Módulo de IA (K-Means)
 
-El script `ai/cluster_service.py` es un microservicio batch/worker autónomo que agrupa incidentes pendientes y calcula centroides para rutas óptimas de recolección.
-
-### Instalación de Dependencias Python
 ```bash
 cd ai
-
-# Crear entorno virtual (opcional pero recomendado)
 python -m venv venv
-
-# Activar entorno virtual
-# En Windows:
-venv\Scripts\activate
-# En Linux/macOS:
-# source venv/bin/activate
-
-# Instalar librerías
+venv\Scripts\activate          # Windows  (Linux/macOS: source venv/bin/activate)
 pip install -r requirements.txt
+
+python cluster_service.py -k 3             # agrupa y guarda en PostGIS
+python cluster_service.py -k 3 --dry-run   # solo muestra el resultado
 ```
 
-### Ejecución del Script de Clustering
-```bash
-# Ejecución estándar (K=3 por defecto)
-python cluster_service.py
-
-# Especificar número de clústeres K deseados
-python cluster_service.py -k 5
-
-# Modo Simulación (sin escribir en base de datos)
-python cluster_service.py -k 3 --dry-run
-```
-
-### Características del Módulo de IA:
-- **Consulta PostGIS**: Extrae longitud (`ST_X`) y latitud (`ST_Y`) de incidentes en estado `pending`.
-- **Manejo de Casos Borde**:
-  - Si no hay puntos: finaliza con log explicativo sin arrojar error.
-  - Si hay menos puntos que $K$ ($N < K$): ajusta dinámicamente $K = N$ evitando fallos de Scikit-Learn.
-- **Persistencia Transaccional**:
-  - Inserta los centroides calculados en la tabla `clusters` con `ST_SetSRID(ST_MakePoint(lng, lat), 4326)`.
-  - Asocia a cada incidente pendiente su respectivo `cluster_id`.
-  - Realiza `ROLLBACK` automático ante cualquier error inesperado.
+- Toma los reportes en estado `pending` (`ST_X`, `ST_Y`) y aplica **K-Means** de Scikit-Learn.
+- Si hay menos reportes que K, ajusta K al número de reportes.
+- Marca como `cleared` los clústeres anteriores, inserta los nuevos centroides y asocia cada reporte a su clúster en una sola transacción (con `ROLLBACK` ante errores).
+- El panel lo ejecuta con `POST /api/clusters/run`, usando el intérprete de `ai/venv`.
