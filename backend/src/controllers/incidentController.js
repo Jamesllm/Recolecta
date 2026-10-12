@@ -1,169 +1,54 @@
 /**
- * Controlador de Incidentes de Recolección (Recolecta+)
+ * Controlador de Incidentes para el panel municipal (Recolecta+)
  * Módulo: src/controllers/incidentController.js
+ *
+ * Los incidentes son los reportes que registran los vecinos desde la app (POST /api/reports).
  */
 
 const { query } = require('../config/db');
+const { imageUrl } = require('../services/storage');
+const { reportCode } = require('./reportController');
+
+const SELECT_INCIDENT = `
+  SELECT
+    i.id, i.user_id, u.full_name AS reporter_name, i.photo_key, i.category, i.estimated_size,
+    i.description, i.address, i.status, i.cluster_id,
+    ST_X(i.location) AS longitude,
+    ST_Y(i.location) AS latitude,
+    i.created_at, i.updated_at
+  FROM incidents i
+  JOIN users u ON u.id = i.user_id`;
+
+const toIncident = async ({ photo_key, ...row }, req) => ({
+  ...row,
+  code: reportCode(row.id),
+  photo_url: await imageUrl(photo_key, req),
+});
 
 /**
- * Registra un nuevo incidente georreferenciado con PostGIS.
- * Endpoint: POST /api/incidents
- * Payload esperado: { user_id, photo_url, category, estimated_size, description, latitude, longitude }
- */
-const createIncident = async (req, res, next) => {
-  try {
-    const {
-      user_id,
-      photo_url,
-      category,
-      estimated_size,
-      description,
-      latitude,
-      longitude,
-    } = req.body;
-
-    // 1. Validaciones de campos obligatorios
-    const missingFields = [];
-    if (!user_id) missingFields.push('user_id');
-    if (!category) missingFields.push('category');
-    if (latitude === undefined || latitude === null) missingFields.push('latitude');
-    if (longitude === undefined || longitude === null) missingFields.push('longitude');
-
-    if (missingFields.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: `Faltan campos obligatorios: ${missingFields.join(', ')}`,
-      });
-    }
-
-    // 2. Validación de rangos geográficos (WGS84 EPSG:4326)
-    const latNum = parseFloat(latitude);
-    const lngNum = parseFloat(longitude);
-
-    if (isNaN(latNum) || latNum < -90 || latNum > 90) {
-      return res.status(400).json({
-        success: false,
-        message: 'La latitud debe ser un número decimal válido entre -90 y 90.',
-      });
-    }
-
-    if (isNaN(lngNum) || lngNum < -180 || lngNum > 180) {
-      return res.status(400).json({
-        success: false,
-        message: 'La longitud debe ser un número decimal válido entre -180 y 180.',
-      });
-    }
-
-    // 3. Inserción en PostGIS: ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)
-    // Nota: En PostGIS ST_MakePoint recibe primero X (longitud) y luego Y (latitud)
-    const insertQuery = `
-      INSERT INTO incidents (
-        user_id,
-        photo_url,
-        category,
-        estimated_size,
-        description,
-        location,
-        status,
-        created_at,
-        updated_at
-      )
-      VALUES (
-        $1, $2, $3, $4, $5,
-        ST_SetSRID(ST_MakePoint($6, $7), 4326),
-        'pending',
-        NOW(),
-        NOW()
-      )
-      RETURNING 
-        id,
-        user_id,
-        photo_url,
-        category,
-        estimated_size,
-        description,
-        status,
-        ST_X(location::geometry) AS longitude,
-        ST_Y(location::geometry) AS latitude,
-        created_at,
-        updated_at;
-    `;
-
-    const values = [
-      user_id,
-      photo_url || null,
-      category,
-      estimated_size || null,
-      description || null,
-      lngNum, // $6: X (longitude)
-      latNum, // $7: Y (latitude)
-    ];
-
-    const result = await query(insertQuery, values);
-    const createdIncident = result.rows[0];
-
-    return res.status(201).json({
-      success: true,
-      message: 'Incidente registrado exitosamente.',
-      data: createdIncident,
-    });
-  } catch (error) {
-    console.error('[createIncident Error]:', error);
-    return next(error);
-  }
-};
-
-/**
- * Obtiene la lista completa de incidentes con sus coordenadas en decimal nativo.
- * Endpoint: GET /api/incidents
+ * Obtiene los incidentes con sus coordenadas en decimal nativo.
+ * Endpoint: GET /api/incidents?status=&category=
  */
 const getIncidents = async (req, res, next) => {
   try {
     const { status, category } = req.query;
-
-    let selectQuery = `
-      SELECT 
-        id,
-        user_id,
-        photo_url,
-        category,
-        estimated_size,
-        description,
-        status,
-        cluster_id,
-        ST_X(location::geometry) AS longitude,
-        ST_Y(location::geometry) AS latitude,
-        created_at,
-        updated_at
-      FROM incidents
-    `;
-
     const whereClauses = [];
     const values = [];
 
     if (status) {
       values.push(status);
-      whereClauses.push(`status = $${values.length}`);
+      whereClauses.push(`i.status = $${values.length}`);
     }
-
     if (category) {
       values.push(category);
-      whereClauses.push(`category = $${values.length}`);
+      whereClauses.push(`i.category = $${values.length}`);
     }
 
-    if (whereClauses.length > 0) {
-      selectQuery += ` WHERE ${whereClauses.join(' AND ')}`;
-    }
+    const where = whereClauses.length ? ` WHERE ${whereClauses.join(' AND ')}` : '';
+    const result = await query(`${SELECT_INCIDENT}${where} ORDER BY i.created_at DESC;`, values);
+    const data = await Promise.all(result.rows.map((row) => toIncident(row, req)));
 
-    selectQuery += ` ORDER BY created_at DESC;`;
-
-    const result = await query(selectQuery, values);
-
-    return res.status(200).json({
-      success: true,
-      count: result.rows.length,
-      data: result.rows,
-    });
+    return res.status(200).json({ success: true, count: data.length, data });
   } catch (error) {
     console.error('[getIncidents Error]:', error);
     return next(error);
@@ -177,11 +62,7 @@ const getIncidents = async (req, res, next) => {
  */
 const updateIncidentStatus = async (req, res, next) => {
   try {
-    const { id } = req.params;
-    const { status } = req.body;
-
-    // 1. Validar ID numérico
-    const incidentId = parseInt(id, 10);
+    const incidentId = parseInt(req.params.id, 10);
     if (isNaN(incidentId)) {
       return res.status(400).json({
         success: false,
@@ -189,52 +70,28 @@ const updateIncidentStatus = async (req, res, next) => {
       });
     }
 
-    // 2. Validar estado permitido
     const allowedStatuses = ['pending', 'assigned', 'resolved'];
-    if (!status || !allowedStatuses.includes(status.toLowerCase())) {
+    const normalizedStatus = String(req.body.status || '').toLowerCase();
+    if (!allowedStatuses.includes(normalizedStatus)) {
       return res.status(400).json({
         success: false,
         message: `Estado no válido. Los estados permitidos son: ${allowedStatuses.join(', ')}`,
       });
     }
 
-    const normalizedStatus = status.toLowerCase();
-
-    // 3. Ejecutar actualización
-    const updateQuery = `
-      UPDATE incidents
-      SET 
-        status = $1,
-        updated_at = NOW()
-      WHERE id = $2
-      RETURNING 
-        id,
-        user_id,
-        photo_url,
-        category,
-        estimated_size,
-        description,
-        status,
-        cluster_id,
-        ST_X(location::geometry) AS longitude,
-        ST_Y(location::geometry) AS latitude,
-        created_at,
-        updated_at;
-    `;
-
-    const result = await query(updateQuery, [normalizedStatus, incidentId]);
-
-    if (result.rowCount === 0) {
+    const update = await query('UPDATE incidents SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING id;', [normalizedStatus, incidentId]);
+    if (update.rowCount === 0) {
       return res.status(404).json({
         success: false,
         message: `No se encontró ningún incidente con el ID ${incidentId}.`,
       });
     }
 
+    const result = await query(`${SELECT_INCIDENT} WHERE i.id = $1`, [incidentId]);
     return res.status(200).json({
       success: true,
-      message: `El estado del incidente #${incidentId} ha sido actualizado a '${normalizedStatus}'.`,
-      data: result.rows[0],
+      message: `El estado del incidente ${reportCode(incidentId)} ha sido actualizado a '${normalizedStatus}'.`,
+      data: await toIncident(result.rows[0], req),
     });
   } catch (error) {
     console.error('[updateIncidentStatus Error]:', error);
@@ -243,7 +100,6 @@ const updateIncidentStatus = async (req, res, next) => {
 };
 
 module.exports = {
-  createIncident,
   getIncidents,
   updateIncidentStatus,
 };

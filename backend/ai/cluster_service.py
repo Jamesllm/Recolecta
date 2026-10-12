@@ -6,7 +6,7 @@ Recolecta+ | Módulo de Inteligencia Artificial & Clustering Geoespacial
 Script: cluster_service.py
 Versión: Python 3.11+
 Descripción: Microservicio autónomo para la agrupación espacial de incidentes
-             reportados en estado 'pending'. Utiliza Scikit-Learn (K-Means/DBSCAN)
+             reportados en estado 'pending'. Utiliza Scikit-Learn (K-Means)
              sobre coordenadas decimales extraídas de PostGIS y persiste los
              centroides optimizados de vuelta en PostgreSQL.
 ==============================================================================
@@ -23,7 +23,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import pandas as pd
 import numpy as np
-from sklearn.cluster import KMeans, DBSCAN
+from sklearn.cluster import KMeans
 from dotenv import load_dotenv
 
 # ==============================================================================

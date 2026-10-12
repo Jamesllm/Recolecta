@@ -7,9 +7,6 @@ const express = require('express');
 const router = express.Router();
 const incidentController = require('../controllers/incidentController');
 
-// POST /api/incidents - Crear un nuevo reporte con coordenadas PostGIS
-router.post('/', incidentController.createIncident);
-
 // GET /api/incidents - Obtener incidentes con coordenadas decimales (ST_X, ST_Y)
 router.get('/', incidentController.getIncidents);
 
