@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Cluster } from '@/services/api';
+import { Cluster, clusterPriority, formatTons } from '@/services/api';
 import { cn } from '@/lib/utils';
 import { ChevronRight } from 'lucide-react';
 
@@ -14,7 +14,7 @@ interface ClusterCardProps {
 
 export const ClusterCard: React.FC<ClusterCardProps> = ({ cluster, maxCount, isSelected, onSelect }) => {
   const pct = Math.round((cluster.incident_count / Math.max(1, maxCount)) * 100);
-  const level = pct >= 66 ? 'Alta' : pct >= 33 ? 'Media' : 'Baja';
+  const level = clusterPriority(cluster.incident_count, maxCount);
   const badge = { Alta: 'bg-rose-100 text-rose-700 border-rose-200', Media: 'bg-amber-100 text-amber-700 border-amber-200', Baja: 'bg-emerald-100 text-emerald-700 border-emerald-200' }[level];
   const bar = { Alta: 'bg-rose-500', Media: 'bg-amber-500', Baja: 'bg-emerald-500' }[level];
 
@@ -33,8 +33,9 @@ export const ClusterCard: React.FC<ClusterCardProps> = ({ cluster, maxCount, isS
         </div>
         <ChevronRight className={cn('w-4 h-4', isSelected ? 'text-emerald-600' : 'text-slate-300')} />
       </div>
-      <p className="text-xs text-slate-500 mt-1">
-        {cluster.incident_count} {cluster.incident_count === 1 ? 'reporte agrupado' : 'reportes agrupados'}
+      {cluster.zone && <p className="text-xs font-medium text-slate-700 mt-1 truncate" title={cluster.zone}>{cluster.zone}</p>}
+      <p className="text-xs text-slate-500 mt-0.5">
+        {cluster.incident_count} {cluster.incident_count === 1 ? 'reporte' : 'reportes'} · ≈ {formatTons(cluster.estimated_tons)}
       </p>
       <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden mt-2.5">
         <div className={cn('h-full rounded-full', bar)} style={{ width: `${pct}%` }} />

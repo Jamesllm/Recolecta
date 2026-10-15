@@ -1,67 +1,59 @@
 'use client';
 
 import React from 'react';
-import { AlertTriangle, Truck, CheckCircle, TrendingUp } from 'lucide-react';
+import { AlertTriangle, Flame, Truck, Weight } from 'lucide-react';
+import { DaySummary, formatTons, SIZE_LABELS } from '@/services/api';
 
 interface MetricSummaryProps {
-  totalIncidents: number;
-  pendingCount: number;
-  assignedCount: number;
-  resolvedCount: number;
+  summary: DaySummary | null;
 }
 
-export const MetricSummary: React.FC<MetricSummaryProps> = ({
-  totalIncidents,
-  pendingCount,
-  assignedCount,
-  resolvedCount,
-}) => {
-  // Indicadores calculados a partir de los incidentes cargados (sin cifras fijas)
-  const pct = (n: number) => (totalIncidents ? Math.round((n / totalIncidents) * 100) : 0);
+// Indicadores del día del «Panel general» (A2, US-04), calculados por la API a partir de los reportes
+export const MetricSummary: React.FC<MetricSummaryProps> = ({ summary }) => {
+  const value = (n?: number) => (summary ? n : '—');
+  const factors = summary
+    ? (Object.keys(summary.tons_by_size) as (keyof DaySummary['tons_by_size'])[])
+        .map((k) => `${SIZE_LABELS[k]} ${formatTons(summary.tons_by_size[k])}`)
+        .join(' · ')
+    : '';
+
   const cards = [
     {
-      title: 'Alertas Pendientes',
-      value: pendingCount,
-      subtitle: 'Requieren atención',
+      title: 'Incidentes abiertos',
+      value: value(summary?.open),
+      subtitle: summary ? `${summary.pending} ${summary.pending === 1 ? 'pendiente' : 'pendientes'} · ${summary.assigned} en ruta` : 'Pendientes y en ruta',
       icon: AlertTriangle,
-      color: 'text-rose-600',
-      bgColor: 'bg-rose-50',
-      borderColor: 'border-rose-100',
-      badge: `${pct(pendingCount)}% del total`,
-      badgeColor: 'bg-rose-100 text-rose-700',
-    },
-    {
-      title: 'En Ruta / Asignadas',
-      value: assignedCount,
-      subtitle: 'Asignadas a una cuadrilla',
-      icon: Truck,
       color: 'text-amber-600',
       bgColor: 'bg-amber-50',
       borderColor: 'border-amber-100',
-      badge: `${pct(assignedCount)}% del total`,
-      badgeColor: 'bg-amber-100 text-amber-700',
     },
     {
-      title: 'Incidentes Resueltos',
-      value: resolvedCount,
-      subtitle: 'Puntos críticos atendidos',
-      icon: CheckCircle,
-      color: 'text-emerald-600',
-      bgColor: 'bg-emerald-50',
-      borderColor: 'border-emerald-100',
-      badge: `${pct(resolvedCount)}% del total`,
-      badgeColor: 'bg-emerald-100 text-emerald-700',
+      title: 'Críticos sin asignar',
+      value: value(summary?.critical_unassigned),
+      subtitle: 'Pendientes de urgencia alta (peligroso o camión completo)',
+      icon: Flame,
+      color: 'text-rose-600',
+      bgColor: 'bg-rose-50',
+      borderColor: 'border-rose-100',
     },
     {
-      title: 'Total de reportes',
-      value: totalIncidents,
-      subtitle: 'Reportes ciudadanos registrados',
-      icon: TrendingUp,
+      title: 'Rutas activas',
+      value: value(summary?.active_routes),
+      subtitle: 'Clústeres con reportes en ruta',
+      icon: Truck,
       color: 'text-indigo-600',
       bgColor: 'bg-indigo-50',
       borderColor: 'border-indigo-100',
-      badge: 'Total',
-      badgeColor: 'bg-indigo-100 text-indigo-700',
+    },
+    {
+      title: 'Recolectado hoy',
+      value: summary ? formatTons(summary.tons_collected_today) : '—',
+      subtitle: summary ? `Estimado · ${summary.resolved_today} ${summary.resolved_today === 1 ? 'punto atendido' : 'puntos atendidos'}` : 'Estimado por tamaño',
+      icon: Weight,
+      color: 'text-emerald-600',
+      bgColor: 'bg-emerald-50',
+      borderColor: 'border-emerald-100',
+      hint: factors ? `Carga estimada por tamaño: ${factors}` : undefined,
     },
   ];
 
@@ -72,6 +64,7 @@ export const MetricSummary: React.FC<MetricSummaryProps> = ({
         return (
           <div
             key={card.title}
+            title={card.hint}
             className="bg-white rounded-2xl border border-slate-200/80 p-4.5 shadow-xs hover:shadow-sm transition-all"
           >
             <div className="flex items-center justify-between">
@@ -85,13 +78,8 @@ export const MetricSummary: React.FC<MetricSummaryProps> = ({
               </div>
             </div>
 
-            <div className="mt-3 flex items-baseline justify-between">
-              <span className="text-2xl font-bold text-slate-900 tracking-tight">
-                {card.value}
-              </span>
-              <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md ${card.badgeColor}`}>
-                {card.badge}
-              </span>
+            <div className="mt-3">
+              <span className="text-2xl font-bold text-slate-900 tracking-tight">{card.value}</span>
             </div>
 
             <p className="text-xs text-slate-400 mt-1">{card.subtitle}</p>

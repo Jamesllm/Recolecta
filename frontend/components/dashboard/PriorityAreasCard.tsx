@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sparkles, ArrowRight, Flame, CheckCircle2, AlertCircle } from 'lucide-react';
-import { Cluster, clusterService, errorMessage } from '@/services/api';
+import { Cluster, clusterPriority, clusterService, errorMessage, formatTons } from '@/services/api';
 
 interface PriorityAreasCardProps {
   clusters: Cluster[];
@@ -19,14 +19,19 @@ export const PriorityAreasCard: React.FC<PriorityAreasCardProps> = ({ clusters, 
   const [isRunning, setIsRunning] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const maxCount = Math.max(1, ...clusters.map((c) => c.incident_count));
+  // Zonas ordenadas por densidad de alertas (reportes agrupados en cada clúster)
+  const zones = [...clusters].sort((a, b) => b.incident_count - a.incident_count);
 
-  const handleRun = async () => {
+  // «Optimizar rutas con IA»: agrupa con K-Means los reportes pendientes y abre «Rutas con IA» (A5)
+  const handleOptimize = async () => {
     try {
       setIsRunning(true);
       setMessage(null);
-      const text = await clusterService.run(k);
-      await onClustersUpdated();
-      setMessage({ ok: true, text });
+      if (pendingCount > 0) {
+        await clusterService.run(k);
+        await onClustersUpdated();
+      }
+      router.push('/routes');
     } catch (error) {
       setMessage({ ok: false, text: errorMessage(error) });
     } finally {
@@ -44,8 +49,8 @@ export const PriorityAreasCard: React.FC<PriorityAreasCardProps> = ({ clusters, 
               <Flame className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="font-bold text-slate-900 text-base">Áreas prioritarias</h3>
-              <p className="text-xs text-slate-500">Clústeres K-Means de reportes pendientes</p>
+              <h3 className="font-bold text-slate-900 text-base">Zonas prioritarias</h3>
+              <p className="text-xs text-slate-500">Ordenadas por densidad de alertas (K-Means)</p>
             </div>
           </div>
           <span className="px-2.5 py-1 text-xs font-semibold bg-slate-100 text-slate-700 rounded-full">
@@ -60,9 +65,9 @@ export const PriorityAreasCard: React.FC<PriorityAreasCardProps> = ({ clusters, 
           </p>
         ) : (
           <div className="space-y-3.5 max-h-[360px] overflow-y-auto pr-1">
-            {clusters.map((cluster) => {
+            {zones.map((cluster) => {
               const pct = Math.round((cluster.incident_count / maxCount) * 100);
-              const level = pct >= 66 ? 'Alta' : pct >= 33 ? 'Media' : 'Baja';
+              const level = clusterPriority(cluster.incident_count, maxCount);
               const tone = level === 'Alta' ? ['bg-rose-100 text-rose-700', 'bg-rose-500'] : level === 'Media' ? ['bg-amber-100 text-amber-700', 'bg-amber-500'] : ['bg-emerald-100 text-emerald-700', 'bg-emerald-500'];
               return (
                 <button
@@ -70,20 +75,20 @@ export const PriorityAreasCard: React.FC<PriorityAreasCardProps> = ({ clusters, 
                   onClick={() => router.push(`/routes?cluster=${cluster.id}`)}
                   className="w-full text-left p-3.5 rounded-xl border border-slate-100 bg-slate-50/60 hover:bg-slate-50 transition-colors cursor-pointer"
                 >
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="font-semibold text-sm text-slate-800">Clúster {cluster.code}</span>
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded-md ${tone[0]}`}>
-                      {cluster.incident_count} {cluster.incident_count === 1 ? 'reporte' : 'reportes'}
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <span className="font-semibold text-sm text-slate-800 truncate" title={cluster.zone ?? undefined}>
+                      {cluster.zone || `Clúster ${cluster.code}`}
                     </span>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-md shrink-0 ${tone[0]}`}>{level}</span>
                   </div>
                   <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
                     <div className={`h-full rounded-full ${tone[1]} transition-all duration-500`} style={{ width: `${pct}%` }} />
                   </div>
                   <div className="flex items-center justify-between mt-2 text-[11px] text-slate-500">
-                    <span>Prioridad: {level}</span>
-                    <span className="font-medium">
-                      {cluster.latitude.toFixed(4)}, {cluster.longitude.toFixed(4)}
+                    <span>
+                      {cluster.incident_count} {cluster.incident_count === 1 ? 'alerta' : 'alertas'} · Clúster {cluster.code}
                     </span>
+                    <span className="font-medium">≈ {formatTons(cluster.estimated_tons)} estimadas</span>
                   </div>
                 </button>
               );
@@ -112,25 +117,27 @@ export const PriorityAreasCard: React.FC<PriorityAreasCardProps> = ({ clusters, 
           </select>
         </label>
         <button
-          onClick={handleRun}
-          disabled={isRunning || pendingCount === 0}
+          onClick={handleOptimize}
+          disabled={isRunning || (pendingCount === 0 && clusters.length === 0)}
           className="w-full py-3.5 px-4 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-60 text-white font-semibold rounded-xl text-sm transition-all duration-200 shadow-md shadow-emerald-700/20 flex items-center justify-center gap-2 group cursor-pointer"
         >
           {isRunning ? (
             <>
               <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              <span>Ejecutando K-Means sobre PostGIS...</span>
+              <span>Agrupando reportes con K-Means...</span>
             </>
           ) : (
             <>
               <Sparkles className="w-4 h-4 text-emerald-200" />
-              <span>Ejecutar agrupamiento K-Means</span>
+              <span>Optimizar rutas con IA</span>
               <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
             </>
           )}
         </button>
         <p className="text-[11px] text-center text-slate-400">
-          {pendingCount === 0 ? 'No hay reportes pendientes para agrupar.' : `Agrupa los ${pendingCount} reportes pendientes y guarda los centroides en PostGIS.`}
+          {pendingCount === 0
+            ? clusters.length ? 'Sin reportes pendientes nuevos: abre las rutas de los clústeres actuales.' : 'No hay reportes pendientes para agrupar.'
+            : `Agrupa ${pendingCount === 1 ? 'el reporte pendiente' : `los ${pendingCount} reportes pendientes`} con K-Means y propone el orden de recojo.`}
         </p>
       </div>
     </div>

@@ -6,7 +6,7 @@ import { Header } from '@/components/layout/Header';
 import { ClusterCard } from '@/components/routes/ClusterCard';
 import { RoutePanel } from '@/components/routes/RoutePanel';
 import { DynamicRouteMap } from '@/components/maps/DynamicRouteMap';
-import { Cluster, clusterService, errorMessage } from '@/services/api';
+import { Cluster, clusterService, errorMessage, formatTons } from '@/services/api';
 import { AlertCircle, ChevronRight, RefreshCw, Sparkles, Zap } from 'lucide-react';
 
 export default function RoutesPage() {
@@ -43,14 +43,14 @@ export default function RoutesPage() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <Header title="Clústeres y rutas" subtitle="Agrupamiento espacial K-Means de los reportes pendientes y orden de recojo sugerido" />
+      <Header title="Rutas con IA" subtitle="Agrupamiento espacial K-Means de los reportes pendientes y orden de recojo sugerido" />
 
       <div className="p-8 space-y-6 max-w-[1600px] mx-auto w-full">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
           <nav className="flex items-center gap-2 text-xs font-medium text-slate-500">
             <Link href="/" className="hover:text-slate-900 transition-colors">Panel general</Link>
             <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-            <span className="font-semibold text-emerald-600">Clústeres y rutas</span>
+            <span className="font-semibold text-emerald-600">Rutas con IA</span>
           </nav>
           <div className="flex items-center gap-3">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold">
@@ -111,7 +111,9 @@ export default function RoutesPage() {
             <div className="lg:col-span-6 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-800">Clúster {selected.code}</span>
-                <span className="text-xs text-slate-500">{selected.incident_count} reportes · orden sugerido por cercanía</span>
+                <span className="text-xs text-slate-500">
+                  {selected.zone ? `${selected.zone} · ` : ''}{selected.incident_count} {selected.incident_count === 1 ? 'reporte' : 'reportes'} · ≈ {formatTons(selected.estimated_tons)} · orden sugerido por cercanía
+                </span>
               </div>
               <DynamicRouteMap cluster={selected} />
             </div>

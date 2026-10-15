@@ -54,15 +54,21 @@ export type Urgency = 'high' | 'medium' | 'low';
 export interface Incident {
   id: number;
   code: string;
-  user_id: number;
+  title: string;
+  user_id: number | null; // null: reporte enviado como invitado
   reporter_name: string;
   photo_url: string | null;
   category: string;
   estimated_size: 'small' | 'medium' | 'large';
   description: string | null;
   address: string | null;
+  reference: string | null;
   status: IncidentStatus;
   cluster_id: number | null;
+  confirmations: number;
+  critical: boolean; // pendiente y de urgencia alta
+  estimated_tons: number;
+  resolved_at: string | null;
   longitude: number;
   latitude: number;
   created_at: string;
@@ -79,11 +85,15 @@ export interface ClusterIncident {
   address: string | null;
   latitude: number;
   longitude: number;
+  urgency: Urgency;
+  estimated_tons: number;
 }
 
 export interface Cluster {
   id: number;
   code: string;
+  zone: string | null; // dirección del reporte más cercano al centroide
+  estimated_tons: number;
   incident_count: number;
   latitude: number;
   longitude: number;
@@ -106,22 +116,45 @@ export const SIZE_LABELS: Record<Incident['estimated_size'], string> = {
 // Categorías que registra la app del vecino
 export const CATEGORIES = ['Orgánico', 'Inorgánico', 'Escombros', 'Peligroso'] as const;
 
-// La urgencia se deriva del tamaño estimado y del tipo de residuo
-const urgencyOf = (i: Pick<Incident, 'estimated_size' | 'category'>): Urgency =>
-  i.estimated_size === 'large' || i.category === 'Peligroso' ? 'high' : i.estimated_size === 'medium' ? 'medium' : 'low';
+/** Indicadores del día del panel general (GET /api/incidents/summary) */
+export interface DaySummary {
+  open: number;
+  pending: number;
+  assigned: number;
+  critical_unassigned: number;
+  active_routes: number;
+  resolved_today: number;
+  tons_collected_today: number;
+  tons_open: number;
+  tons_by_size: Record<Incident['estimated_size'], number>;
+}
+
+/** Toneladas con formato peruano: 2,35 t */
+export const formatTons = (t: number) => `${String(Math.round(t * 100) / 100).replace('.', ',')} t`;
+
+/** Prioridad de un clúster según su cantidad de reportes frente al mayor */
+export const clusterPriority = (count: number, maxCount: number): 'Alta' | 'Media' | 'Baja' => {
+  const pct = (count / Math.max(1, maxCount)) * 100;
+  return pct >= 66 ? 'Alta' : pct >= 33 ? 'Media' : 'Baja';
+};
 
 export const incidentService = {
   /** Obtiene los incidentes desde la API Node.js / PostGIS */
   async getIncidents(params?: { status?: string; category?: string }): Promise<Incident[]> {
     const response = await call(() => apiClient.get('/incidents', { params }));
-    return response.data.data.map((item: Omit<Incident, 'urgency'>) => ({ ...item, urgency: urgencyOf(item) }));
+    return response.data.data;
+  },
+
+  /** Indicadores del día: abiertos, críticos sin asignar, rutas activas y toneladas recolectadas */
+  async getSummary(): Promise<DaySummary> {
+    const response = await call(() => apiClient.get('/incidents/summary'));
+    return response.data.data;
   },
 
   /** Actualiza el estado de un incidente */
   async updateStatus(id: number, status: IncidentStatus): Promise<Incident> {
     const response = await call(() => apiClient.patch(`/incidents/${id}/status`, { status }));
-    const item = response.data.data;
-    return { ...item, urgency: urgencyOf(item) };
+    return response.data.data;
   },
 };
 

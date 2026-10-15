@@ -34,7 +34,7 @@ const navItems: NavItem[] = [
     icon: LayoutDashboard,
   },
   {
-    name: 'Clústeres y rutas de IA',
+    name: 'Rutas con IA',
     href: '/routes',
     icon: Route,
   },

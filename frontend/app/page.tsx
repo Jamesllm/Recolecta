@@ -5,12 +5,14 @@ import { Header } from '@/components/layout/Header';
 import { DynamicHeatMap } from '@/components/maps/DynamicHeatMap';
 import { PriorityAreasCard } from '@/components/dashboard/PriorityAreasCard';
 import { MetricSummary } from '@/components/dashboard/MetricSummary';
-import { incidentService, clusterService, Incident, Cluster, errorMessage } from '@/services/api';
+import { RecentIncidents } from '@/components/dashboard/RecentIncidents';
+import { incidentService, clusterService, Incident, Cluster, DaySummary, errorMessage } from '@/services/api';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 
 export default function DashboardPage() {
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [clusters, setClusters] = useState<Cluster[]>([]);
+  const [summary, setSummary] = useState<DaySummary | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -19,9 +21,10 @@ export default function DashboardPage() {
     try {
       setIsLoading(true);
       setError(null);
-      const [data, groups] = await Promise.all([incidentService.getIncidents(), clusterService.getClusters()]);
+      const [data, groups, day] = await Promise.all([incidentService.getIncidents(), clusterService.getClusters(), incidentService.getSummary()]);
       setIncidents(data);
       setClusters(groups);
+      setSummary(day);
       setLastUpdated(new Date());
     } catch (err) {
       setError(errorMessage(err));
@@ -42,8 +45,6 @@ export default function DashboardPage() {
   }, []);
 
   const pendingCount = incidents.filter((i) => i.status === 'pending').length;
-  const assignedCount = incidents.filter((i) => i.status === 'assigned').length;
-  const resolvedCount = incidents.filter((i) => i.status === 'resolved').length;
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -80,12 +81,8 @@ export default function DashboardPage() {
         )}
 
         {/* Métricas Resumen */}
-        <MetricSummary
-          totalIncidents={incidents.length}
-          pendingCount={pendingCount}
-          assignedCount={assignedCount}
-          resolvedCount={resolvedCount}
-        />
+        {/* Indicadores del día */}
+        <MetricSummary summary={summary} />
 
         {/* Layout de Dos Columnas (70% Mapa Interactivo / 30% Áreas Prioritarias) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -114,6 +111,9 @@ export default function DashboardPage() {
             <PriorityAreasCard clusters={clusters} pendingCount={pendingCount} onClustersUpdated={fetchIncidentsData} />
           </div>
         </div>
+
+        {/* Incidentes recientes */}
+        <RecentIncidents incidents={incidents} />
       </div>
     </div>
   );

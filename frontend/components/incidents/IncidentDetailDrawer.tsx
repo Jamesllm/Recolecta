@@ -143,6 +143,18 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                 </div>
               )}
 
+              {incident.reference && (
+                <div className="flex items-center justify-between gap-4 text-xs">
+                  <span className="text-slate-500 shrink-0">Referencia:</span>
+                  <span className="text-slate-800 font-medium text-right">{incident.reference}</span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-500">Confirmaciones «Sigue ahí»:</span>
+                <span className="text-slate-800 font-semibold">{incident.confirmations}</span>
+              </div>
+
               <div className="flex items-center justify-between text-xs">
                 <span className="text-slate-500 flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5 text-slate-400" /> Fecha y hora:
