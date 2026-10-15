@@ -99,9 +99,11 @@ Periodo de ejecucion: **10 al 17 de octubre de 2026**.
 
 | Historia de Usuario | Descripcion Funcional | Capa de Implementacion |
 |:---|:---|:---|
-| `US-01` **Registro y Sesion de Ciudadano** | Registro con validacion formal de credenciales y asociacion a ubigeo territorial (departamento, provincia, distrito). Persistencia de sesion segura en dispositivos nativos y navegador web. | `mobile/`, `POST /api/register`, `POST /api/login`, `GET /api/me` |
-| `US-02` **Reporte de Residuos con Foto y GPS** | Captura o seleccion de foto, compresion automatica de imagen, geolocalizacion GPS con ajuste manual en mapa, categorizacion y persistencia en Amazon S3 y PostGIS. | `mobile/`, `POST /api/reports` |
-| `US-03` **Mapa de Puntos Cercanos** | Visualizacion geoespacial de incidentes en un radio dinamico de 500 m, filtrado por estados (`pending`, `assigned`, `resolved`) y deteccion preventiva de duplicados. | `mobile/`, `GET /api/reports/nearby` |
+| `US-02` **Reporte de Residuos con Foto y GPS** | Reporte con cuenta o como invitado: captura o seleccion de foto, compresion automatica, geolocalizacion GPS con ajuste manual en mapa y referencia opcional, tipo y tamano del residuo, persistencia en Amazon S3 y PostGIS y codigo de seguimiento. | `mobile/`, `POST /api/reports` |
+| `US-03` **Mapa de Puntos Cercanos** | Reportes en un radio de 500 m con marcadores por estado (pendiente, en ruta, resuelto o critico), filtros por estado y hoja de detalle con urgencia, tiempo desde el reporte, confirmaciones de vecinos y acciones «Sigue ahi» y «Reportar otro». | `mobile/`, `GET /api/reports/nearby`, `POST /api/reports/:id/confirm` |
+| `US-04` **Panel General y Clusteres** | Indicadores del dia (incidentes abiertos, criticos sin asignar, rutas activas y toneladas recolectadas estimadas), mapa de calor, incidentes recientes, zonas prioritarias con carga estimada y «Optimizar rutas con IA» (K-Means). | `frontend/`, `GET /api/incidents/summary`, `GET /api/clusters`, `POST /api/clusters/run` |
+
+El registro e inicio de sesion del ciudadano (`US-01`) paso al Sprint 2 en la replanificacion del 13 de octubre de 2026; la app ya lo incluye, pero no es requisito para reportar.
 
 Prototipo de diseno UI/UX validado: [Prototipo en Figma](https://www.figma.com/proto/ay8UeV1wq2jKnHS90bKZz3/Recolecta-?node-id=25-5&t=aOT8hrXgXpSaUAUk-1).
 
@@ -216,19 +218,21 @@ python cluster_service.py -k 3
 
 | Metodo | Endpoint | Descripcion | Autenticacion |
 |:---|:---|:---|:---:|
-| `POST` | `/api/reports` | Creacion de reporte georreferenciado con imagen multipart | Requerida |
-| `GET` | `/api/reports/nearby` | Consulta geoespacial de incidentes en radio metrico (ST_DWithin) | Requerida |
-| `GET` | `/api/reports/mine` | Listado historico de reportes emitidos por el vecino autenticado | Requerida |
-| `GET` | `/api/reports/:id` | Detalle estructurado de un incidente individual | Requerida |
-| `GET` | `/api/incidents` | Listado consolidado para el panel municipal con filtros | Requerida |
-| `PATCH` | `/api/incidents/:id/status` | Transicion de estado de atencion de incidente | Requerida |
+| `POST` | `/api/reports` | Creacion de reporte georreferenciado con imagen multipart | Cuenta o invitado |
+| `GET` | `/api/reports/nearby` | Consulta geoespacial de incidentes en radio metrico (ST_DWithin) | Cuenta o invitado |
+| `GET` | `/api/reports/mine` | Reportes de la cuenta y de los enviados como invitado desde el telefono | Cuenta o invitado |
+| `GET` | `/api/reports/:id` | Detalle estructurado de un incidente individual | Cuenta o invitado |
+| `POST` | `/api/reports/:id/confirm` | Confirmacion «Sigue ahi» de otro vecino | Cuenta o invitado |
+| `GET` | `/api/incidents` | Listado consolidado para el panel municipal con filtros | No (inicio de sesion del panel: US-10) |
+| `GET` | `/api/incidents/summary` | Indicadores del dia del panel general | No (inicio de sesion del panel: US-10) |
+| `PATCH` | `/api/incidents/:id/status` | Transicion de estado de atencion de incidente | No (inicio de sesion del panel: US-10) |
 
 ### Analitica y Rutas
 
 | Metodo | Endpoint | Descripcion | Autenticacion |
 |:---|:---|:---|:---:|
-| `GET` | `/api/clusters` | Obtencion de agrupaciones espaciales calculadas | Requerida |
-| `POST` | `/api/clusters/run` | Disparo bajo demanda del clustering K-Means | Requerida |
+| `GET` | `/api/clusters` | Obtencion de agrupaciones espaciales calculadas | No (inicio de sesion del panel: US-10) |
+| `POST` | `/api/clusters/run` | Disparo bajo demanda del clustering K-Means | No (inicio de sesion del panel: US-10) |
 
 ---
 

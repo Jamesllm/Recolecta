@@ -102,6 +102,7 @@ Al iniciar, el servidor valida `JWT_SECRET`, la conexión con PostGIS y el almac
 ## 📡 4. Endpoints
 
 Prefijo base: `http://localhost:4000/api`. Los endpoints marcados con 🔒 requieren `Authorization: Bearer <token>`.
+Los marcados con 👤 aceptan la sesión **o** el modo invitado: la app envía siempre `X-Device-Id` (UUID anónimo del teléfono), que identifica los reportes y confirmaciones del invitado.
 
 ### Cuentas (US-01)
 | Método | Ruta | Descripción |
@@ -120,17 +121,21 @@ Prefijo base: `http://localhost:4000/api`. Los endpoints marcados con 🔒 requi
 ### Reportes de la app del vecino (US-02 y US-03)
 | Método | Ruta | Descripción |
 |---|---|---|
-| POST 🔒 | `/reports` | `multipart/form-data`: `photo` (JPG/PNG/WEBP/HEIC, máx. 8 MB), `latitude`, `longitude`, `gps_accuracy_m?`, `address?`, `category` (`Orgánico`, `Inorgánico`, `Escombros`, `Peligroso`), `estimated_size` (`small`, `medium`, `large`), `description?` (≤ 280). Guarda la foto en S3 y el punto en PostGIS con estado `pending`; responde el código de seguimiento (`RL-0001`). |
-| GET 🔒 | `/reports/nearby?lat=&lng=&radius=500&status=` | Reportes dentro del radio en metros (`ST_DWithin` sobre `geography`, máx. 5000), ordenados por distancia. |
-| GET 🔒 | `/reports/mine` | Reportes del vecino. |
-| GET 🔒 | `/reports/:id` | Detalle de un reporte. |
+| POST 👤 | `/reports` | `multipart/form-data`: `photo` (JPG/PNG/WEBP/HEIC, máx. 8 MB), `latitude`, `longitude`, `gps_accuracy_m?`, `address?`, `reference?` (≤ 140), `category` (`Orgánico`, `Inorgánico`, `Escombros`, `Peligroso`), `estimated_size` (`small`, `medium`, `large`), `description?` (≤ 280). Guarda la foto en S3 y el punto en PostGIS con estado `pending`; responde el código de seguimiento (`RL-0001`). Los invitados tienen un límite de 10 reportes por hora e IP. |
+| GET 👤 | `/reports/nearby?lat=&lng=&radius=500&status=` | Reportes dentro del radio en metros (`ST_DWithin` sobre `geography`, máx. 5000), ordenados por distancia, con `title`, `urgency`, `critical` y `confirmations`. |
+| GET 👤 | `/reports/mine` | Reportes de la cuenta y los enviados como invitado desde el teléfono. Al registrarse o iniciar sesión, los reportes del invitado pasan a la cuenta. |
+| GET 👤 | `/reports/:id` | Detalle de un reporte. |
+| POST 👤 | `/reports/:id/confirm` | «Sigue ahí»: suma una confirmación (una por cuenta y una por teléfono); no se permite en el propio reporte ni en uno resuelto. |
+
+Reglas compartidas (`src/services/incidentRules.js`): urgencia **alta** si el residuo es `Peligroso` o `large` (camión completo), **media** si es `medium`, **baja** si es `small`; un reporte es **crítico** si está pendiente y tiene urgencia alta. La carga se **estima** por tamaño: 0,01 t, 0,1 t y 2 t.
 
 ### Panel municipal
 | Método | Ruta | Descripción |
 |---|---|---|
-| GET | `/incidents?status=&category=` | Reportes con nombre del vecino y URL de la foto. |
-| PATCH | `/incidents/:id/status` | `{ status: 'pending' \| 'assigned' \| 'resolved' }`. |
-| GET | `/clusters` | Clústeres activos con sus reportes. |
+| GET | `/incidents?status=&category=` | Reportes con nombre del vecino («Invitado» si no tiene cuenta), URL de la foto, urgencia, crítico, toneladas estimadas y confirmaciones. |
+| GET | `/incidents/summary` | Indicadores del día (US-04): incidentes abiertos, críticos sin asignar, rutas activas (clústeres con reportes en ruta) y toneladas recolectadas hoy (estimadas). |
+| PATCH | `/incidents/:id/status` | `{ status: 'pending' \| 'assigned' \| 'resolved' }`; al resolver guarda `resolved_at`. |
+| GET | `/clusters` | Clústeres activos con sus reportes, zona (dirección más cercana al centroide) y toneladas estimadas. |
 | POST | `/clusters/run` | `{ k }`: ejecuta `ai/cluster_service.py` sobre los reportes pendientes. |
 
 > Los endpoints del panel todavía no exigen sesión de gestor; el inicio de sesión del panel corresponde a la US-10.
