@@ -6,9 +6,11 @@ import { FlatList, Image, Pressable, RefreshControl, StyleSheet, Text, View } fr
 import { Banner, Button, StatusPill } from '@/components/ui';
 import { api, ApiError, SIZE_LABEL, type Report } from '@/lib/api';
 import { formatDate } from '@/lib/location';
+import { useSession } from '@/lib/session';
 import { colors, radius } from '@/lib/theme';
 
 export default function MyReports() {
+  const { isGuest } = useSession();
   const [reports, setReports] = useState<Report[] | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +41,12 @@ export default function MyReports() {
       data={reports ?? []}
       keyExtractor={(r) => String(r.id)}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} colors={[colors.primary]} />}
-      ListHeaderComponent={error ? <Banner tone="danger" text={error} /> : null}
+      ListHeaderComponent={
+        <View style={{ gap: 12 }}>
+          {error && <Banner tone="danger" text={error} />}
+          {isGuest && <Banner text="Como invitado ves los reportes enviados desde este teléfono. Crea una cuenta en Perfil para no perderlos." />}
+        </View>
+      }
       ListEmptyComponent={reports ? (
         <View style={s.empty}>
           <Ionicons name="clipboard-outline" size={48} color="#CBD5E1" />

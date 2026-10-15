@@ -44,6 +44,7 @@ export default function Details() {
         longitude: location.longitude,
         gps_accuracy_m: location.accuracy,
         address: location.address,
+        reference: location.reference,
         category,
         estimated_size: size,
         description,

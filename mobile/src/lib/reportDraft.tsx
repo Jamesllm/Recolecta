@@ -7,6 +7,7 @@ export interface DraftLocation {
   longitude: number;
   accuracy: number | null; // null cuando el vecino ajustó el punto a mano en el mapa
   address: string | null;
+  reference: string; // referencia opcional que escribe el vecino al ajustar el punto (pantalla 10)
 }
 
 interface Draft {

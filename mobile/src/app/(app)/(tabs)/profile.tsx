@@ -1,5 +1,6 @@
-// Perfil del vecino y cierre de sesión
+// Perfil del vecino y cierre de sesión; el invitado ve las opciones para crear su cuenta
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import type { ComponentProps } from 'react';
 import { Alert, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button, Card } from '@/components/ui';
@@ -10,7 +11,7 @@ import { colors } from '@/lib/theme';
 
 export default function Profile() {
   const { user, signOut } = useSession();
-  if (!user) return null;
+  if (!user) return <GuestProfile onExit={signOut} />;
 
   const rows: [ComponentProps<typeof Ionicons>['name'], string, string][] = [
     ['mail-outline', 'Correo electrónico', user.email],
@@ -53,6 +54,29 @@ export default function Profile() {
         ))}
       </Card>
       <Button title="Cerrar sesión" icon="log-out-outline" variant="secondary" onPress={confirmSignOut} />
+    </ScrollView>
+  );
+}
+
+function GuestProfile({ onExit }: { onExit: () => void }) {
+  return (
+    <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={s.content}>
+      <View style={s.head}>
+        <View style={[s.avatar, { backgroundColor: colors.border }]}>
+          <Ionicons name="person-outline" size={38} color={colors.muted} />
+        </View>
+        <Text style={s.name}>Invitado</Text>
+        <Text style={s.role}>Usas Recolecta+ sin cuenta</Text>
+      </View>
+      <Card style={{ gap: 10 }}>
+        <Text style={s.value}>Crea tu cuenta para no perder tus reportes</Text>
+        <Text style={s.label}>
+          Tus reportes como invitado quedan guardados en este teléfono. Si creas una cuenta o inicias sesión aquí, se suman a tu cuenta.
+        </Text>
+      </Card>
+      <Button title="Crear cuenta" icon="person-add-outline" onPress={() => router.push('/sign-up')} />
+      <Button title="Iniciar sesión" icon="log-in-outline" variant="secondary" onPress={() => router.push('/sign-in')} />
+      <Button title="Salir del modo invitado" icon="exit-outline" variant="secondary" onPress={onExit} />
     </ScrollView>
   );
 }

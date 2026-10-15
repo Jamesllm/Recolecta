@@ -4,9 +4,9 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LeafletMap } from '@/components/LeafletMap';
 import { Banner, Card, StatusPill } from '@/components/ui';
-import { api, ApiError, SIZE_LABEL, type Report } from '@/lib/api';
+import { api, ApiError, SIZE_LABEL, URGENCY_LABEL, type Report } from '@/lib/api';
 import { formatDate } from '@/lib/location';
-import { colors, radius, statusColor } from '@/lib/theme';
+import { colors, markerColor, radius } from '@/lib/theme';
 
 export default function ReportDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -25,10 +25,13 @@ export default function ReportDetail() {
   const rows: [string, string][] = [
     ['Tipo de residuo', report.category],
     ['Tamaño estimado', SIZE_LABEL[report.estimated_size]],
+    ['Urgencia', report.critical ? 'Crítico (urgencia alta, sin asignar)' : URGENCY_LABEL[report.urgency].replace('Urgencia ', '')],
     ['Dirección', report.address || 'No disponible'],
+    ...(report.reference ? [['Referencia', report.reference] as [string, string]] : []),
     ['Coordenadas', `${report.latitude.toFixed(5)}, ${report.longitude.toFixed(5)}`],
     ['Precisión GPS', report.gps_accuracy_m !== null ? `${Math.round(report.gps_accuracy_m)} m` : 'Ajustada en el mapa'],
     ['Registrado', formatDate(report.created_at)],
+    ['Confirmaciones «Sigue ahí»', String(report.confirmations)],
   ];
 
   return (
@@ -57,7 +60,7 @@ export default function ReportDetail() {
         initialCenter={{ latitude: report.latitude, longitude: report.longitude }}
         initialZoom={17}
         interactive={false}
-        markers={[{ id: report.id, latitude: report.latitude, longitude: report.longitude, color: statusColor[report.status].fg }]}
+        markers={[{ id: report.id, latitude: report.latitude, longitude: report.longitude, color: markerColor(report) }]}
       />
     </ScrollView>
   );

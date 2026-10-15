@@ -30,7 +30,7 @@ export default function Evidence() {
         return;
       }
       const pos = await currentPosition();
-      setLocation({ ...pos, address: await addressFor(pos.latitude, pos.longitude) });
+      setLocation({ ...pos, address: await addressFor(pos.latitude, pos.longitude), reference: '' });
     } catch {
       setError('No se pudo obtener la ubicación GPS. Verifica que el GPS esté encendido.');
     } finally {
@@ -109,6 +109,7 @@ export default function Evidence() {
                 <Ionicons name="location-outline" size={18} color={colors.primary} />
                 <Text style={s.address}>{location.address || 'Dirección no disponible'}</Text>
               </View>
+              {!!location.reference && <Text style={s.gps}>Referencia: {location.reference}</Text>}
               <Text style={s.gps}>
                 GPS {location.latitude.toFixed(5)} · {location.longitude.toFixed(5)}
                 {location.accuracy !== null ? ` · precisión ${Math.round(location.accuracy)} m` : ' · ajustada en el mapa'}

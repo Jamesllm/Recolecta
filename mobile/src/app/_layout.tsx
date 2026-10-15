@@ -16,7 +16,7 @@ function SplashScreenController() {
 }
 
 function RootNavigator() {
-  const { user, isLoading } = useSession();
+  const { user, isGuest, isLoading } = useSession();
   if (isLoading) return null;
   return (
     <Stack
@@ -29,7 +29,8 @@ function RootNavigator() {
         contentStyle: { backgroundColor: colors.surface },
       }}
     >
-      <Stack.Protected guard={!!user}>
+      {/* El invitado entra a la app sin cuenta y puede abrir «Iniciar sesión» o «Crear cuenta» cuando quiera */}
+      <Stack.Protected guard={!!user || isGuest}>
         <Stack.Screen name="(app)" options={{ headerShown: false }} />
       </Stack.Protected>
       <Stack.Protected guard={!user}>

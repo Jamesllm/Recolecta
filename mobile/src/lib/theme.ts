@@ -25,4 +25,7 @@ export const statusColor: Record<ReportStatus, { fg: string; bg: string }> = {
   resolved: { fg: colors.primary, bg: colors.primaryTint },
 };
 
+/** Color del marcador: rojo si el punto es crítico (pendiente y de urgencia alta), si no el de su estado. */
+export const markerColor = (r: { status: ReportStatus; critical: boolean }) => (r.critical ? colors.danger : statusColor[r.status].fg);
+
 export const radius = { sm: 10, md: 14, lg: 20, pill: 999 };

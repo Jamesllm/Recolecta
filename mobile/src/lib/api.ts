@@ -5,6 +5,7 @@ export const API_URL = (process.env.EXPO_PUBLIC_API_URL || '').replace(/\/$/, ''
 export type ReportStatus = 'pending' | 'assigned' | 'resolved';
 export type Category = 'Orgánico' | 'Inorgánico' | 'Escombros' | 'Peligroso';
 export type Size = 'small' | 'medium' | 'large';
+export type Urgency = 'high' | 'medium' | 'low';
 
 export interface User {
   id: number;
@@ -23,16 +24,22 @@ export interface UbigeoItem {
 export interface Report {
   id: number;
   code: string;
+  title: string;
   category: Category;
   estimated_size: Size;
+  urgency: Urgency;
+  critical: boolean; // pendiente y de urgencia alta
   description: string | null;
   address: string | null;
+  reference: string | null;
   gps_accuracy_m: number | null;
   status: ReportStatus;
   latitude: number;
   longitude: number;
   distance_m?: number;
   photo_url: string | null;
+  confirmations: number; // vecinos que confirmaron «Sigue ahí»
+  confirmed_by_me: boolean;
   is_mine: boolean;
   created_at: string;
 }
@@ -43,6 +50,7 @@ export interface NewReport {
   longitude: number;
   gps_accuracy_m: number | null;
   address: string | null;
+  reference: string;
   category: Category;
   estimated_size: Size;
   description: string;
@@ -60,10 +68,17 @@ export const setAuthToken = (token: string | null) => {
   authToken = token;
 };
 
+// Identificador anónimo del teléfono: permite reportar como invitado y ver «Mis reportes» sin cuenta
+let deviceId: string | null = null;
+export const setDeviceId = (id: string | null) => {
+  deviceId = id;
+};
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!API_URL) throw new ApiError('Falta configurar EXPO_PUBLIC_API_URL en mobile/.env.', 0);
   const headers: Record<string, string> = { Accept: 'application/json', ...(init.headers as Record<string, string>) };
   if (authToken) headers.Authorization = `Bearer ${authToken}`;
+  if (deviceId) headers['X-Device-Id'] = deviceId;
   if (init.body && !(init.body instanceof FormData)) headers['Content-Type'] = 'application/json';
 
   let res: Response;
@@ -101,6 +116,8 @@ export const api = {
 
   report: (id: number) => request<{ data: Report }>(`/reports/${id}`),
 
+  confirm: (id: number) => request<{ message: string; data: Report }>(`/reports/${id}/confirm`, { method: 'POST' }),
+
   createReport: async (r: NewReport) => {
     const fd = new FormData();
     if (Platform.OS === 'web') {
@@ -116,6 +133,7 @@ export const api = {
     fd.append('longitude', String(r.longitude));
     if (r.gps_accuracy_m !== null) fd.append('gps_accuracy_m', String(r.gps_accuracy_m));
     if (r.address) fd.append('address', r.address);
+    if (r.reference.trim()) fd.append('reference', r.reference.trim());
     fd.append('category', r.category);
     fd.append('estimated_size', r.estimated_size);
     if (r.description.trim()) fd.append('description', r.description.trim());
@@ -127,6 +145,12 @@ export const STATUS_LABEL: Record<ReportStatus, string> = {
   pending: 'Pendiente',
   assigned: 'En ruta',
   resolved: 'Resuelto',
+};
+
+export const URGENCY_LABEL: Record<Urgency, string> = {
+  high: 'Urgencia alta',
+  medium: 'Urgencia media',
+  low: 'Urgencia baja',
 };
 
 export const SIZE_LABEL: Record<Size, string> = {

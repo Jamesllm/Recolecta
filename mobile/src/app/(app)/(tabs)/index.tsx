@@ -6,10 +6,10 @@ import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LeafletMap, type LeafletMapHandle } from '@/components/LeafletMap';
 import { Banner, Button, StatusPill } from '@/components/ui';
-import { api, ApiError, SIZE_LABEL, type Report, type ReportStatus } from '@/lib/api';
-import { currentPosition, ensureLocationPermission, formatDate, formatDistance } from '@/lib/location';
+import { api, ApiError, SIZE_LABEL, URGENCY_LABEL, type Report, type ReportStatus } from '@/lib/api';
+import { currentPosition, ensureLocationPermission, formatDistance, timeAgo } from '@/lib/location';
 import { useSession } from '@/lib/session';
-import { colors, radius, statusColor } from '@/lib/theme';
+import { colors, markerColor, radius } from '@/lib/theme';
 
 const RADIUS_M = 500;
 const FILTERS: { label: string; value?: ReportStatus }[] = [
@@ -106,7 +106,7 @@ export default function Home() {
           initialZoom={16}
           user={me}
           circle={center ? { center, radius: RADIUS_M } : null}
-          markers={reports.map((r) => ({ id: r.id, latitude: r.latitude, longitude: r.longitude, color: statusColor[r.status].fg, selected: r.id === selected?.id }))}
+          markers={reports.map((r) => ({ id: r.id, latitude: r.latitude, longitude: r.longitude, color: markerColor(r), selected: r.id === selected?.id }))}
           onMarkerPress={(id) => setSelected(reports.find((r) => r.id === id) ?? null)}
           onMapPress={() => setSelected(null)}
           onMoveEnd={setViewCenter}
@@ -126,8 +126,8 @@ export default function Home() {
               {loading ? 'Buscando reportes…' : `${reports.length} reporte${reports.length === 1 ? '' : 's'} a menos de ${RADIUS_M} m`}
             </Text>
           </View>
-          <Pressable style={s.avatar} onPress={() => router.push('/profile')} accessibilityLabel="Perfil">
-            <Text style={s.avatarText}>{initials(user?.full_name)}</Text>
+          <Pressable style={[s.avatar, !user && s.avatarGuest]} onPress={() => router.push('/profile')} accessibilityLabel="Perfil">
+            {user ? <Text style={s.avatarText}>{initials(user.full_name)}</Text> : <Ionicons name="person-outline" size={22} color={colors.muted} />}
           </Pressable>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
@@ -155,7 +155,14 @@ export default function Home() {
         </Pressable>
 
         {selected ? (
-          <PointCard report={selected} onClose={() => setSelected(null)} />
+          <PointCard
+            report={selected}
+            onClose={() => setSelected(null)}
+            onUpdated={(r) => {
+              setReports((list) => list.map((x) => (x.id === r.id ? { ...r, distance_m: x.distance_m } : x)));
+              setSelected((cur) => (cur ? { ...r, distance_m: cur.distance_m } : cur));
+            }}
+          />
         ) : (
           <Button title="Reportar residuos" icon="camera-outline" onPress={() => router.push('/report/evidence')} style={s.cta} />
         )}
@@ -164,25 +171,74 @@ export default function Home() {
   );
 }
 
-function PointCard({ report, onClose }: { report: Report; onClose: () => void }) {
+// Pantalla 08 · Detalle de punto: hoja inferior al tocar un marcador
+function PointCard({ report, onClose, onUpdated }: { report: Report; onClose: () => void; onUpdated: (r: Report) => void }) {
+  const [confirming, setConfirming] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const canConfirm = !report.is_mine && !report.confirmed_by_me && report.status !== 'resolved';
+  const confirmLabel = report.is_mine ? 'Tu reporte' : report.confirmed_by_me ? 'Confirmado' : 'Sigue ahí';
+
+  // «Sigue ahí»: otro vecino confirma que el punto continúa sin atenderse
+  const confirm = async () => {
+    setConfirming(true);
+    setError(null);
+    try {
+      onUpdated((await api.confirm(report.id)).data);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'No se pudo registrar tu confirmación.');
+    } finally {
+      setConfirming(false);
+    }
+  };
+
   return (
     <View style={s.card}>
       {report.photo_url && <Image source={{ uri: report.photo_url }} style={s.cardPhoto} />}
-      <View style={{ flex: 1, gap: 4 }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Text style={s.cardCode}>#{report.code}</Text>
-          <Pressable onPress={onClose} hitSlop={10} accessibilityLabel="Cerrar">
-            <Ionicons name="close" size={20} color={colors.muted} />
-          </Pressable>
+      <View style={s.cardHead}>
+        <View style={{ flex: 1 }}>
+          <Text style={s.cardTitle}>{report.title}</Text>
+          <Text style={s.cardMuted} numberOfLines={1}>
+            {report.address || `${report.latitude.toFixed(5)}, ${report.longitude.toFixed(5)}`}
+            {report.distance_m !== undefined ? ` · a ${formatDistance(report.distance_m)}` : ''}
+          </Text>
         </View>
-        <StatusPill status={report.status} />
-        <Text style={s.cardText}>{report.category} · {SIZE_LABEL[report.estimated_size]}</Text>
-        <Text style={s.cardMuted} numberOfLines={1}>{report.address || `${report.latitude.toFixed(5)}, ${report.longitude.toFixed(5)}`}</Text>
-        <Text style={s.cardMuted}>A {formatDistance(report.distance_m)} · {formatDate(report.created_at)}{report.is_mine ? ' · Tu reporte' : ''}</Text>
-        <Pressable onPress={() => router.push({ pathname: '/report/[id]', params: { id: String(report.id) } })}>
-          <Text style={s.cardLink}>Ver detalle</Text>
+        <Pressable onPress={onClose} hitSlop={10} accessibilityLabel="Cerrar">
+          <Ionicons name="close" size={22} color={colors.muted} />
         </Pressable>
       </View>
+      <View style={s.pills}>
+        <StatusPill status={report.status} />
+        {report.critical ? (
+          <Text style={[s.tag, s.tagDanger]}>Crítico</Text>
+        ) : (
+          <Text style={[s.tag, report.urgency === 'high' && s.tagDanger]}>{URGENCY_LABEL[report.urgency]}</Text>
+        )}
+        <Text style={s.tag}>{report.category} · {SIZE_LABEL[report.estimated_size]}</Text>
+      </View>
+      <View style={s.metaRow}>
+        <Ionicons name="time-outline" size={15} color={colors.muted} />
+        <Text style={s.cardMuted}>Reportado {timeAgo(report.created_at)}</Text>
+        <Ionicons name="people-outline" size={15} color={colors.muted} style={{ marginLeft: 8 }} />
+        <Text style={s.cardMuted}>
+          {report.confirmations} {report.confirmations === 1 ? 'vecino lo confirmó' : 'vecinos lo confirmaron'}
+        </Text>
+      </View>
+      {error && <Banner tone="danger" text={error} />}
+      <View style={s.actions}>
+        <Button
+          title={confirmLabel}
+          icon={canConfirm ? 'checkmark-circle-outline' : 'checkmark-done-outline'}
+          variant="secondary"
+          onPress={confirm}
+          loading={confirming}
+          disabled={!canConfirm}
+          style={{ flex: 1, paddingHorizontal: 12 }}
+        />
+        <Button title="Reportar otro" onPress={() => router.push('/report/evidence')} style={{ flex: 1, paddingHorizontal: 12 }} />
+      </View>
+      <Pressable onPress={() => router.push({ pathname: '/report/[id]', params: { id: String(report.id) } })} style={{ alignSelf: 'center' }}>
+        <Text style={s.cardLink}>Ver detalle · #{report.code}</Text>
+      </Pressable>
     </View>
   );
 }
@@ -198,6 +254,7 @@ const s = StyleSheet.create({
   counterText: { color: colors.text, fontSize: 14.5, fontWeight: '600' },
   avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', elevation: 3 },
   avatarText: { color: '#fff', fontWeight: '800', fontSize: 16 },
+  avatarGuest: { backgroundColor: colors.surface },
   chip: { paddingHorizontal: 16, height: 38, borderRadius: radius.pill, backgroundColor: colors.surface, justifyContent: 'center', elevation: 2, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6 },
   chipActive: { backgroundColor: colors.ink },
   chipText: { fontWeight: '700', color: colors.ink, fontSize: 14 },
@@ -205,10 +262,15 @@ const s = StyleSheet.create({
   bottom: { position: 'absolute', left: 16, right: 16, bottom: 16, gap: 12 },
   locate: { alignSelf: 'flex-end', width: 48, height: 48, borderRadius: 24, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', elevation: 3, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8 },
   cta: { alignSelf: 'center', paddingHorizontal: 28, elevation: 4 },
-  card: { flexDirection: 'row', gap: 12, backgroundColor: colors.surface, borderRadius: radius.lg, padding: 12, elevation: 5, shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 12 },
-  cardPhoto: { width: 96, height: 120, borderRadius: radius.md, backgroundColor: colors.border },
-  cardCode: { fontSize: 16, fontWeight: '800', color: colors.ink },
-  cardText: { fontSize: 14, color: colors.text, fontWeight: '600' },
+  card: { backgroundColor: colors.surface, borderRadius: radius.lg, padding: 14, gap: 10, elevation: 5, shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 12 },
+  cardPhoto: { width: '100%', height: 130, borderRadius: radius.md, backgroundColor: colors.border },
+  cardHead: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
+  cardTitle: { fontSize: 17, fontWeight: '800', color: colors.ink },
   cardMuted: { fontSize: 13, color: colors.muted },
+  pills: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, alignItems: 'center' },
+  tag: { fontSize: 12.5, fontWeight: '700', color: colors.text, backgroundColor: '#F1F5F9', paddingHorizontal: 10, paddingVertical: 4, borderRadius: radius.pill, overflow: 'hidden' },
+  tagDanger: { color: colors.danger, backgroundColor: colors.dangerTint },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap' },
+  actions: { flexDirection: 'row', gap: 10 },
   cardLink: { color: colors.primary, fontWeight: '700', marginTop: 2 },
 });

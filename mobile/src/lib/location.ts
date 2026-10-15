@@ -26,5 +26,16 @@ export async function addressFor(latitude: number, longitude: number): Promise<s
 
 export const formatDistance = (m?: number) => (m === undefined ? '' : m < 1000 ? `${m} m` : `${(m / 1000).toFixed(1)} km`);
 
+/** «hace 5 min», «hace 2 h», «hace 3 días» */
+export const timeAgo = (iso: string) => {
+  const min = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  if (min < 1) return 'hace un momento';
+  if (min < 60) return `hace ${min} min`;
+  const h = Math.round(min / 60);
+  if (h < 24) return `hace ${h} h`;
+  const d = Math.round(h / 24);
+  return `hace ${d} día${d === 1 ? '' : 's'}`;
+};
+
 export const formatDate = (iso: string) =>
   new Date(iso).toLocaleString('es-PE', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
