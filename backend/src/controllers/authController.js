@@ -5,7 +5,13 @@
 
 const bcrypt = require('bcryptjs');
 const { query } = require('../config/db');
-const { signToken } = require('../middlewares/auth');
+const { signToken, deviceIdOf } = require('../middlewares/auth');
+
+/** Los reportes enviados como invitado desde este teléfono pasan a la cuenta que se registra o inicia sesión en él. */
+const claimGuestReports = async (userId, req) => {
+  const device = deviceIdOf(req);
+  if (device) await query('UPDATE incidents SET user_id = $1 WHERE user_id IS NULL AND device_id = $2', [userId, device]);
+};
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const PASSWORD_RE = /^(?=.*[A-Za-zÁÉÍÓÚáéíóúÑñ])(?=.*\d).{8,}$/;
@@ -65,6 +71,7 @@ const register = async (req, res, next) => {
       [full_name, email, password_hash, ubigeo]
     );
     const user = (await query(`${SELECT_USER} WHERE u.id = $1`, [inserted.rows[0].id])).rows[0];
+    await claimGuestReports(user.id, req);
 
     return res.status(201).json({
       success: true,
@@ -94,6 +101,7 @@ const login = async (req, res, next) => {
     if (!user || !(await bcrypt.compare(password, user.password_hash))) {
       return res.status(401).json({ success: false, message: 'Correo o contraseña incorrectos.' });
     }
+    await claimGuestReports(user.id, req);
 
     return res.status(200).json({ success: true, data: { user: publicUser(user), token: signToken(user) } });
   } catch (error) {

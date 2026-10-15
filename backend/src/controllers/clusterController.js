@@ -7,6 +7,21 @@ const path = require('path');
 const { execFile } = require('child_process');
 const { query } = require('../config/db');
 const { reportCode } = require('./reportController');
+const { urgencyOf, tonsOf, sumTons } = require('../services/incidentRules');
+
+// Zona del clúster: dirección del reporte más cercano al centroide
+const zoneOf = (c) => {
+  let best = null;
+  let bestD = Infinity;
+  for (const i of c.incidents) {
+    const d = (i.latitude - c.latitude) ** 2 + (i.longitude - c.longitude) ** 2;
+    if (i.address && d < bestD) {
+      best = i.address;
+      bestD = d;
+    }
+  }
+  return best;
+};
 
 const SCRIPT = path.join(__dirname, '..', '..', 'ai', 'cluster_service.py');
 const DEFAULT_PYTHON = process.platform === 'win32'
@@ -36,7 +51,9 @@ const getClusters = async (req, res, next) => {
     const data = result.rows.map((c) => ({
       ...c,
       code: `C-${String(c.id).padStart(2, '0')}`,
-      incidents: c.incidents.map((i) => ({ ...i, code: reportCode(i.id) })),
+      zone: zoneOf(c),
+      estimated_tons: sumTons(c.incidents),
+      incidents: c.incidents.map((i) => ({ ...i, code: reportCode(i.id), urgency: urgencyOf(i), estimated_tons: tonsOf(i) })),
     }));
     return res.status(200).json({ success: true, count: data.length, data });
   } catch (error) {

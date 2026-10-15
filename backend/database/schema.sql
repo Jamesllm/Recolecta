@@ -65,18 +65,22 @@ CREATE TABLE IF NOT EXISTS clusters (
 CREATE INDEX IF NOT EXISTS idx_clusters_centroid ON clusters USING GIST (centroid);
 
 -- Reportes ciudadanos (US-02). En el panel se gestionan como «incidentes».
+-- user_id es nulo cuando el vecino reporta como invitado; device_id identifica su teléfono de forma anónima.
 CREATE TABLE IF NOT EXISTS incidents (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    device_id VARCHAR(64),
     photo_key TEXT NOT NULL,
     category VARCHAR(100) NOT NULL,
     estimated_size VARCHAR(50) NOT NULL,
     description VARCHAR(280),
     address TEXT,
+    reference VARCHAR(140),
     gps_accuracy_m REAL,
     location GEOMETRY(Point, 4326) NOT NULL,
     status incident_status DEFAULT 'pending',
     cluster_id INTEGER REFERENCES clusters(id) ON DELETE SET NULL,
+    resolved_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -88,3 +92,22 @@ CREATE INDEX IF NOT EXISTS idx_incidents_location_geog ON incidents USING GIST (
 CREATE INDEX IF NOT EXISTS idx_incidents_status ON incidents (status);
 CREATE INDEX IF NOT EXISTS idx_incidents_cluster_id ON incidents (cluster_id);
 CREATE INDEX IF NOT EXISTS idx_incidents_user_id ON incidents (user_id);
+
+-- Bases creadas antes del modo invitado: mismas columnas que la definición de arriba
+ALTER TABLE incidents ALTER COLUMN user_id DROP NOT NULL;
+ALTER TABLE incidents ADD COLUMN IF NOT EXISTS device_id VARCHAR(64);
+ALTER TABLE incidents ADD COLUMN IF NOT EXISTS reference VARCHAR(140);
+ALTER TABLE incidents ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMP WITH TIME ZONE;
+CREATE INDEX IF NOT EXISTS idx_incidents_device_id ON incidents (device_id);
+
+-- Confirmaciones «Sigue ahí» de los vecinos (US-03): una por cuenta y una por teléfono
+CREATE TABLE IF NOT EXISTS incident_confirmations (
+    id SERIAL PRIMARY KEY,
+    incident_id INTEGER NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    device_id VARCHAR(64),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CHECK (user_id IS NOT NULL OR device_id IS NOT NULL)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_confirmations_user ON incident_confirmations (incident_id, user_id) WHERE user_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_confirmations_device ON incident_confirmations (incident_id, device_id) WHERE device_id IS NOT NULL;

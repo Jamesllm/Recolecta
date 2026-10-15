@@ -1,12 +1,12 @@
 /**
- * Rutas de reportes ciudadanos (requieren sesión)
+ * Rutas de reportes ciudadanos (con cuenta o como invitado)
  * Módulo: src/routes/reportRoutes.js
  */
 
 const express = require('express');
 const multer = require('multer');
 const router = express.Router();
-const { requireAuth } = require('../middlewares/auth');
+const { optionalAuth } = require('../middlewares/auth');
 const reportController = require('../controllers/reportController');
 
 const MAX_PHOTO_MB = 8;
@@ -31,18 +31,37 @@ const uploadPhoto = (req, res, next) =>
     return res.status(400).json({ success: false, message, errors: { photo: message } });
   });
 
-router.use(requireAuth);
+// Límite de reportes de invitados por IP, para evitar el envío masivo de fotos sin cuenta
+const GUEST_LIMIT = 10;
+const GUEST_WINDOW_MS = 60 * 60 * 1000;
+const guestHits = new Map();
+const guestLimiter = (req, res, next) => {
+  if (req.user) return next();
+  const now = Date.now();
+  const recent = (guestHits.get(req.ip) || []).filter((t) => now - t < GUEST_WINDOW_MS);
+  if (recent.length >= GUEST_LIMIT) {
+    return res.status(429).json({ success: false, message: 'Enviaste muchos reportes como invitado. Crea una cuenta o inténtalo en una hora.' });
+  }
+  recent.push(now);
+  guestHits.set(req.ip, recent);
+  return next();
+};
 
-// POST /api/reports - Registrar reporte con foto y GPS (US-02)
-router.post('/', uploadPhoto, reportController.createReport);
+router.use(optionalAuth);
+
+// POST /api/reports - Registrar reporte con foto y GPS, también como invitado (US-02)
+router.post('/', guestLimiter, uploadPhoto, reportController.createReport);
 
 // GET /api/reports/nearby - Reportes en un radio (US-03)
 router.get('/nearby', reportController.getNearbyReports);
 
-// GET /api/reports/mine - Reportes del ciudadano
+// GET /api/reports/mine - Reportes de la cuenta y de este teléfono
 router.get('/mine', reportController.getMyReports);
 
 // GET /api/reports/:id - Detalle de un reporte
 router.get('/:id', reportController.getReport);
+
+// POST /api/reports/:id/confirm - «Sigue ahí»: el punto sigue sin atenderse (US-03)
+router.post('/:id/confirm', reportController.confirmReport);
 
 module.exports = router;
