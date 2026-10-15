@@ -1,9 +1,40 @@
-// Sesión del vecino: token JWT guardado en el almacenamiento seguro del teléfono
 import * as SecureStore from 'expo-secure-store';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Platform } from 'react-native';
 import { api, ApiError, setAuthToken, type User } from './api';
 
 const TOKEN_KEY = 'recolecta.token';
+
+const storage = {
+  async getItem(key: string): Promise<string | null> {
+    if (Platform.OS === 'web') {
+      try {
+        return typeof window !== 'undefined' ? window.localStorage.getItem(key) : null;
+      } catch {
+        return null;
+      }
+    }
+    return SecureStore.getItemAsync(key);
+  },
+  async setItem(key: string, value: string): Promise<void> {
+    if (Platform.OS === 'web') {
+      try {
+        if (typeof window !== 'undefined') window.localStorage.setItem(key, value);
+      } catch {}
+      return;
+    }
+    return SecureStore.setItemAsync(key, value);
+  },
+  async deleteItem(key: string): Promise<void> {
+    if (Platform.OS === 'web') {
+      try {
+        if (typeof window !== 'undefined') window.localStorage.removeItem(key);
+      } catch {}
+      return;
+    }
+    return SecureStore.deleteItemAsync(key);
+  },
+};
 
 interface SessionValue {
   user: User | null;
@@ -23,14 +54,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     (async () => {
       try {
-        const token = await SecureStore.getItemAsync(TOKEN_KEY);
+        const token = await storage.getItem(TOKEN_KEY);
         if (token) {
           setAuthToken(token);
           const res = await api.me();
           setUser(res.data);
         }
       } catch (e) {
-        if (e instanceof ApiError && e.status === 401) await SecureStore.deleteItemAsync(TOKEN_KEY);
+        if (e instanceof ApiError && e.status === 401) await storage.deleteItem(TOKEN_KEY);
         setAuthToken(null);
       } finally {
         setIsLoading(false);
@@ -39,7 +70,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const start = useCallback(async (token: string, u: User) => {
-    await SecureStore.setItemAsync(TOKEN_KEY, token);
+    await storage.setItem(TOKEN_KEY, token);
     setAuthToken(token);
     setUser(u);
   }, []);
@@ -57,7 +88,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       return res.message;
     },
     signOut: async () => {
-      await SecureStore.deleteItemAsync(TOKEN_KEY);
+      await storage.deleteItem(TOKEN_KEY);
       setAuthToken(null);
       setUser(null);
     },

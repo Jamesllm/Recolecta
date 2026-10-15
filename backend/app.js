@@ -35,9 +35,14 @@ const corsOptions = {
 
     const isAllowed = allowedOrigins.some((allowed) => {
       // Coincidencia exacta o comodín de subdominio/puerto
-      if (allowed === '*' || allowed === origin) return true;
-      // Compatibilidad con esquemas Expo / React Native (exp://, etc.)
-      if (origin.startsWith('exp://') || origin.startsWith('http://192.168.')) return true;
+      if (
+        allowed === '*' ||
+        allowed === origin ||
+        origin.startsWith('exp://') ||
+        origin.startsWith('http://192.168.') ||
+        origin.startsWith('http://localhost:') ||
+        origin.startsWith('http://127.0.0.1:')
+      ) return true;
       return false;
     });
 

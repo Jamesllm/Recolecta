@@ -1,7 +1,7 @@
 // Perfil del vecino y cierre de sesión
 import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button, Card } from '@/components/ui';
 import { titleCase } from '@/lib/api';
 import { formatDate } from '@/lib/location';
@@ -19,11 +19,18 @@ export default function Profile() {
     ['calendar-outline', 'Miembro desde', formatDate(user.created_at)],
   ];
 
-  const confirmSignOut = () =>
+  const confirmSignOut = () => {
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm('¿Quieres cerrar tu sesión?')) {
+        signOut();
+      }
+      return;
+    }
     Alert.alert('Cerrar sesión', '¿Quieres cerrar tu sesión en este teléfono?', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Cerrar sesión', style: 'destructive', onPress: signOut },
     ]);
+  };
 
   return (
     <ScrollView style={{ backgroundColor: colors.background }} contentContainerStyle={s.content}>

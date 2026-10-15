@@ -1,7 +1,7 @@
 import * as SplashScreen from 'expo-splash-screen';
 import * as SystemUI from 'expo-system-ui';
 import { Stack } from 'expo-router';
-import { StatusBar } from 'react-native';
+import { Platform, StatusBar, StyleSheet, View } from 'react-native';
 import { SessionProvider, useSession } from '@/lib/session';
 import { colors } from '@/lib/theme';
 
@@ -40,13 +40,47 @@ function RootNavigator() {
   );
 }
 
+const isWeb = Platform.OS === 'web';
+
 export default function RootLayout() {
   return (
     <SessionProvider>
       {/* Translúcida: la app se dibuja bajo la barra (fondo blanco) y los iconos oscuros se leen; los márgenes los dan las zonas seguras */}
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent hidden={false} />
       <SplashScreenController />
-      <RootNavigator />
+      {isWeb ? (
+        <View style={s.webOuter}>
+          <View style={s.webContainer}>
+            <RootNavigator />
+          </View>
+        </View>
+      ) : (
+        <RootNavigator />
+      )}
     </SessionProvider>
   );
 }
+
+const s = StyleSheet.create({
+  webOuter: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#0F172A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  webContainer: {
+    flex: 1,
+    width: '100%',
+    maxWidth: 440,
+    height: '100%',
+    backgroundColor: colors.surface,
+    overflow: 'hidden',
+    ...(Platform.OS === 'web'
+      ? ({
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.45)',
+        } as any)
+      : {}),
+  },
+});

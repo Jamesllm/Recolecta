@@ -1,5 +1,4 @@
-// Cliente de la API REST de Recolecta+ (backend/)
-import { File } from 'expo-file-system';
+import { Platform } from 'react-native';
 
 export const API_URL = (process.env.EXPO_PUBLIC_API_URL || '').replace(/\/$/, '');
 
@@ -102,10 +101,17 @@ export const api = {
 
   report: (id: number) => request<{ data: Report }>(`/reports/${id}`),
 
-  createReport: (r: NewReport) => {
+  createReport: async (r: NewReport) => {
     const fd = new FormData();
-    // En SDK 57 el fetch global es expo/fetch: el archivo se adjunta como File (Blob) de expo-file-system
-    fd.append('photo', new File(r.photo.uri), r.photo.fileName);
+    if (Platform.OS === 'web') {
+      const blobRes = await fetch(r.photo.uri);
+      const blob = await blobRes.blob();
+      fd.append('photo', blob, r.photo.fileName);
+    } else {
+      const { File: ExpoFile } = require('expo-file-system');
+      // En SDK 57 el fetch global es expo/fetch: el archivo se adjunta como File (Blob) de expo-file-system
+      fd.append('photo', new ExpoFile(r.photo.uri), r.photo.fileName);
+    }
     fd.append('latitude', String(r.latitude));
     fd.append('longitude', String(r.longitude));
     if (r.gps_accuracy_m !== null) fd.append('gps_accuracy_m', String(r.gps_accuracy_m));
