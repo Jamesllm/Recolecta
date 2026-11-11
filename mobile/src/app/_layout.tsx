@@ -36,6 +36,7 @@ function RootNavigator() {
       <Stack.Protected guard={!user}>
         <Stack.Screen name="sign-in" options={{ title: 'Iniciar sesión' }} />
         <Stack.Screen name="sign-up" options={{ title: 'Crear cuenta' }} />
+        <Stack.Screen name="forgot-password" options={{ title: 'Recuperar contraseña' }} />
       </Stack.Protected>
     </Stack>
   );

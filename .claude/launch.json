@@ -33,6 +33,22 @@
       ],
       "port": 8081,
       "cwd": "mobile"
+    },
+    {
+      "name": "app-web-local",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "expo",
+        "start",
+        "--web",
+        "--port",
+        "8082"
+      ],
+      "port": 8082,
+      "cwd": "mobile",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://localhost:4000/api"
+      }
     }
   ]
 }

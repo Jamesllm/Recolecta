@@ -105,6 +105,16 @@ Periodo de ejecucion: **10 al 17 de octubre de 2026**.
 
 El registro e inicio de sesion del ciudadano (`US-01`) paso al Sprint 2 en la replanificacion del 13 de octubre de 2026; la app ya lo incluye, pero no es requisito para reportar.
 
+### Sprint 2 (en curso)
+
+Criterios de aceptacion y estado de cada uno: [docs/sprint-2/criterios-aceptacion.md](docs/sprint-2/criterios-aceptacion.md).
+
+| Historia de Usuario | Descripcion Funcional | Capa de Implementacion |
+|:---|:---|:---|
+| `US-01` **Registro e Inicio de Sesion** | Crear cuenta con ubigeo, iniciar sesion y recuperar la contrasena con un enlace por correo que caduca en 30 minutos. | `mobile/`, `POST /api/password/forgot`, `GET /reset-password` |
+| `US-05` **Filtros y Revision de Incidentes** | Busqueda y filtros por categoria, urgencia, estado y periodo; detalle con clúster sugerido y linea de seguimiento; seleccion multiple para cambiar estado o asignar a ruta. | `frontend/`, `PATCH /api/incidents/status` |
+| `US-06` **Avisos sobre mis Reportes** | Aviso en la app (campana y bandeja «Notificaciones») cada vez que cambia el estado de un reporte enviado con cuenta, y correo cuando pasa a «Resuelto». | `mobile/`, `GET /api/notifications` |
+
 Prototipo de diseno UI/UX validado: [Prototipo en Figma](https://www.figma.com/proto/ay8UeV1wq2jKnHS90bKZz3/Recolecta-?node-id=25-5&t=aOT8hrXgXpSaUAUk-1).
 
 ---
@@ -210,6 +220,9 @@ python cluster_service.py -k 3
 | `POST` | `/api/register` | Registro de nuevo ciudadano con ubigeo | No |
 | `POST` | `/api/login` | Autenticacion de usuario y emision de token JWT | No |
 | `GET` | `/api/me` | Informacion del usuario autenticado | Requerida |
+| `POST` | `/api/password/forgot` | Envia por correo el enlace para crear una nueva contrasena (caduca en 30 min) | No |
+| `POST` | `/api/password/reset` | Guarda la nueva contrasena con el token del enlace | No |
+| `GET` | `/reset-password?token=` | Pagina web que abre el enlace del correo | No |
 | `GET` | `/api/ubigeo/departamentos` | Catalogo nacional de departamentos | No |
 | `GET` | `/api/ubigeo/departamentos/:id/provincias` | Provincias segun departamento | No |
 | `GET` | `/api/ubigeo/provincias/:id/distritos` | Distritos segun provincia | No |
@@ -225,7 +238,17 @@ python cluster_service.py -k 3
 | `POST` | `/api/reports/:id/confirm` | Confirmacion «Sigue ahi» de otro vecino | Cuenta o invitado |
 | `GET` | `/api/incidents` | Listado consolidado para el panel municipal con filtros | No (inicio de sesion del panel: US-10) |
 | `GET` | `/api/incidents/summary` | Indicadores del dia del panel general | No (inicio de sesion del panel: US-10) |
-| `PATCH` | `/api/incidents/:id/status` | Transicion de estado de atencion de incidente | No (inicio de sesion del panel: US-10) |
+| `PATCH` | `/api/incidents/:id/status` | Transicion de estado de atencion de incidente; registra el historial y avisa al vecino | No (inicio de sesion del panel: US-10) |
+| `PATCH` | `/api/incidents/status` | Cambio de estado de varios incidentes seleccionados (`{ ids, status }`) | No (inicio de sesion del panel: US-10) |
+
+### Avisos del Vecino
+
+| Metodo | Endpoint | Descripcion | Autenticacion |
+|:---|:---|:---|:---:|
+| `GET` | `/api/notifications` | Avisos del vecino y cantidad sin leer | Requerida |
+| `GET` | `/api/notifications/unread-count` | Cantidad sin leer (campana del mapa) | Requerida |
+| `POST` | `/api/notifications/:id/read` | Marca un aviso como leido | Requerida |
+| `POST` | `/api/notifications/read-all` | Marca todos los avisos como leidos | Requerida |
 
 ### Analitica y Rutas
 

@@ -20,6 +20,7 @@ export default function AppLayout() {
         <Stack.Screen name="report/details" options={{ title: 'Detalles del residuo' }} />
         <Stack.Screen name="report/sent" options={{ headerShown: false, gestureEnabled: false }} />
         <Stack.Screen name="report/[id]" options={{ title: 'Detalle del reporte' }} />
+        <Stack.Screen name="notifications" options={{ title: 'Notificaciones' }} />
       </Stack>
     </ReportDraftProvider>
   );

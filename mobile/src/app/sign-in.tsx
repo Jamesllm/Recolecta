@@ -49,6 +49,7 @@ export default function SignIn() {
           placeholder="nombre@correo.pe" keyboardType="email-address" autoCapitalize="none" autoComplete="email" />
         <TextField label="Contraseña" icon="lock-closed-outline" value={password} onChangeText={setPassword}
           placeholder="Tu contraseña" secure autoComplete="password" />
+        <Link href="/forgot-password" style={s.forgot}>¿Olvidaste tu contraseña?</Link>
 
         <View style={{ flex: 1, minHeight: 24 }} />
         <Button title="Iniciar sesión" onPress={submit} loading={loading} disabled={!email || !password} />
@@ -79,6 +80,7 @@ const s = StyleSheet.create({
   subtitle: { fontSize: 15, color: colors.muted, lineHeight: 22, marginTop: -8 },
   footer: { textAlign: 'center', color: colors.muted, fontSize: 14 },
   link: { color: colors.primary, fontWeight: '700' },
+  forgot: { color: colors.primary, fontWeight: '700', fontSize: 14, alignSelf: 'flex-end', marginTop: -6 },
   or: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   line: { flex: 1, height: 1, backgroundColor: colors.border },
   orText: { color: colors.muted, fontSize: 14 },

@@ -125,3 +125,45 @@ CREATE TABLE IF NOT EXISTS incident_confirmations (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_confirmations_user ON incident_confirmations (incident_id, user_id) WHERE user_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_confirmations_device ON incident_confirmations (incident_id, device_id) WHERE device_id IS NOT NULL;
+
+-- Historial de estados de cada reporte (US-05 y US-06): alimenta la línea de seguimiento
+CREATE TABLE IF NOT EXISTS incident_events (
+    id SERIAL PRIMARY KEY,
+    incident_id INTEGER NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,
+    status incident_status NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_incident_events_incident ON incident_events (incident_id);
+
+-- Reportes registrados antes del historial: se toma su fecha de registro y la de resolución
+INSERT INTO incident_events (incident_id, status, created_at)
+SELECT i.id, 'pending', i.created_at FROM incidents i
+WHERE NOT EXISTS (SELECT 1 FROM incident_events e WHERE e.incident_id = i.id);
+INSERT INTO incident_events (incident_id, status, created_at)
+SELECT i.id, 'resolved', i.resolved_at FROM incidents i
+WHERE i.resolved_at IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM incident_events e WHERE e.incident_id = i.id AND e.status = 'resolved');
+
+-- Avisos al vecino cuando cambia el estado de sus reportes (US-06). Solo para reportes enviados con cuenta.
+CREATE TABLE IF NOT EXISTS notifications (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    incident_id INTEGER NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,
+    status incident_status NOT NULL,
+    title VARCHAR(120) NOT NULL,
+    body TEXT NOT NULL,
+    read_at TIMESTAMP WITH TIME ZONE,
+    emailed_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications (user_id, created_at DESC);
+
+-- Enlaces para crear una nueva contraseña (US-01): se guarda solo el hash del token y caducan en 30 minutos
+CREATE TABLE IF NOT EXISTS password_resets (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash CHAR(64) NOT NULL UNIQUE,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    used_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);

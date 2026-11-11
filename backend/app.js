@@ -7,6 +7,7 @@ const express = require('express');
 const cors = require('cors');
 const apiRoutes = require('./src/routes');
 const storage = require('./src/services/storage');
+const passwordController = require('./src/controllers/passwordController');
 const { notFoundHandler, globalErrorHandler } = require('./src/middlewares/errorHandler');
 
 const app = express();
@@ -84,6 +85,10 @@ app.use('/api', apiRoutes);
 if (storage.DRIVER === 'local') {
   app.use('/uploads', express.static(storage.LOCAL_DIR));
 }
+
+// Página que abre el enlace del correo para crear una nueva contraseña (US-01)
+app.get('/reset-password', passwordController.resetPage);
+app.post('/reset-password', passwordController.resetPageSubmit);
 
 // Endpoint raíz informativo
 app.get('/', (req, res) => {

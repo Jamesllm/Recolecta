@@ -42,6 +42,28 @@ export interface Report {
   confirmed_by_me: boolean;
   is_mine: boolean;
   created_at: string;
+  timeline?: TimelineStep[]; // solo en el detalle (GET /reports/:id)
+}
+
+/** Paso de la línea de seguimiento: recibido → agrupado → en ruta → recolectado (pantalla 14) */
+export interface TimelineStep {
+  key: 'received' | 'grouped' | 'assigned' | 'resolved';
+  label: string;
+  done: boolean;
+  at: string | null;
+  detail: string | null;
+}
+
+/** Aviso sobre un cambio de estado de un reporte del vecino (pantalla 15, US-06) */
+export interface AppNotification {
+  id: number;
+  incident_id: number;
+  report_code: string;
+  status: ReportStatus;
+  title: string;
+  body: string;
+  read: boolean;
+  created_at: string;
 }
 
 export interface NewReport {
@@ -102,6 +124,14 @@ export const api = {
     request<{ data: { user: User; token: string } }>('/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
 
   me: () => request<{ data: User }>('/me'),
+
+  forgotPassword: (email: string) =>
+    request<{ message: string }>('/password/forgot', { method: 'POST', body: JSON.stringify({ email }) }),
+
+  notifications: () => request<{ unread: number; data: AppNotification[] }>('/notifications'),
+  unreadCount: () => request<{ unread: number }>('/notifications/unread-count'),
+  readNotification: (id: number) => request<{ success: boolean }>(`/notifications/${id}/read`, { method: 'POST' }),
+  readAllNotifications: () => request<{ updated: number }>('/notifications/read-all', { method: 'POST' }),
 
   departamentos: () => request<{ data: UbigeoItem[] }>('/ubigeo/departamentos'),
   provincias: (idDepartamento: string) => request<{ data: UbigeoItem[] }>(`/ubigeo/departamentos/${idDepartamento}/provincias`),

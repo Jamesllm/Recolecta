@@ -1,26 +1,44 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Incident } from '@/services/api';
+import React, { useEffect, useState } from 'react';
+import { Incident, IncidentStatus, STATUS_LABELS } from '@/services/api';
 import { formatDate } from '@/lib/utils';
-import { Eye, Edit3, Truck, ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
+import { Eye, Truck, ChevronLeft, ChevronRight, MapPin, X } from 'lucide-react';
 
 interface IncidentTableProps {
   incidents: Incident[];
+  totalCount: number; // incidentes sin filtrar
   onViewDetail: (incident: Incident) => void;
-  onAssignTruck: (incident: Incident) => void;
+  onAssignRoute: (incident: Incident) => void;
+  onBulkStatus: (ids: number[], status: IncidentStatus) => Promise<boolean>;
 }
 
 export const IncidentTable: React.FC<IncidentTableProps> = ({
   incidents,
+  totalCount,
   onViewDetail,
-  onAssignTruck,
+  onAssignRoute,
+  onBulkStatus,
 }) => {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [isApplying, setIsApplying] = useState(false);
   const itemsPerPage = 6;
 
   const totalPages = Math.ceil(incidents.length / itemsPerPage) || 1;
+
+  // Al filtrar: vuelve a una página válida y deja seleccionados solo los incidentes visibles
+  useEffect(() => {
+    setCurrentPage((p) => Math.min(p, Math.ceil(incidents.length / itemsPerPage) || 1));
+    setSelectedIds((ids) => ids.filter((id) => incidents.some((i) => i.id === id)));
+  }, [incidents]);
+
+  const applyBulk = async (status: IncidentStatus) => {
+    setIsApplying(true);
+    const ok = await onBulkStatus(selectedIds, status);
+    setIsApplying(false);
+    if (ok) setSelectedIds([]);
+  };
   const paginatedIncidents = incidents.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -42,6 +60,42 @@ export const IncidentTable: React.FC<IncidentTableProps> = ({
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+      {/* Barra de selección (US-05): cuántos incidentes hay seleccionados y acciones sobre todos */}
+      {selectedIds.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 px-6 py-3 bg-slate-900 text-white text-xs">
+          <span className="font-bold">
+            {selectedIds.length} {selectedIds.length === 1 ? 'incidente seleccionado' : 'incidentes seleccionados'}
+          </span>
+          <select
+            value=""
+            disabled={isApplying}
+            onChange={(e) => e.target.value && applyBulk(e.target.value as IncidentStatus)}
+            aria-label="Cambiar estado de los incidentes seleccionados"
+            className="px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-white font-semibold cursor-pointer"
+          >
+            <option value="">Cambiar estado…</option>
+            {(Object.keys(STATUS_LABELS) as IncidentStatus[]).map((st) => (
+              <option key={st} value={st}>{STATUS_LABELS[st]}</option>
+            ))}
+          </select>
+          <button
+            onClick={() => applyBulk('assigned')}
+            disabled={isApplying}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 font-semibold cursor-pointer"
+          >
+            <Truck className="w-3.5 h-3.5" />
+            <span>{isApplying ? 'Aplicando…' : 'Asignar a ruta'}</span>
+          </button>
+          <button
+            onClick={() => setSelectedIds([])}
+            className="ml-auto flex items-center gap-1 text-slate-300 hover:text-white font-semibold cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+            <span>Quitar selección</span>
+          </button>
+        </div>
+      )}
+
       {/* Table Container */}
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
@@ -188,9 +242,10 @@ export const IncidentTable: React.FC<IncidentTableProps> = ({
                           <Eye className="w-3.5 h-3.5" />
                         </button>
                         <button
-                          onClick={() => onAssignTruck(incident)}
-                          title="Asignar camión"
-                          className="p-1.5 rounded-lg border border-slate-200 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 transition-colors"
+                          onClick={() => onAssignRoute(incident)}
+                          disabled={incident.status !== 'pending'}
+                          title="Asignar a ruta"
+                          className="p-1.5 rounded-lg border border-slate-200 hover:bg-emerald-50 text-slate-600 hover:text-emerald-700 disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
                         >
                           <Truck className="w-3.5 h-3.5" />
                         </button>
@@ -217,6 +272,7 @@ export const IncidentTable: React.FC<IncidentTableProps> = ({
           </span>{' '}
           de <span className="font-semibold text-slate-800">{incidents.length}</span>{' '}
           reportes
+          {incidents.length < totalCount && <span> (filtrados de {totalCount})</span>}
         </div>
 
         <div className="flex items-center gap-2">

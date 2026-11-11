@@ -7,6 +7,8 @@ const express = require('express');
 const router = express.Router();
 const { requireAuth } = require('../middlewares/auth');
 const authController = require('../controllers/authController');
+const passwordController = require('../controllers/passwordController');
+const notificationController = require('../controllers/notificationController');
 const incidentRoutes = require('./incidentRoutes');
 const reportRoutes = require('./reportRoutes');
 const clusterRoutes = require('./clusterRoutes');
@@ -29,6 +31,14 @@ router.use('/ubigeo', ubigeoRoutes);
 router.post('/register', authController.register);
 router.post('/login', authController.login);
 router.get('/me', requireAuth, authController.me);
+router.post('/password/forgot', passwordController.forgotPassword);
+router.post('/password/reset', passwordController.resetPassword);
+
+// Avisos del vecino sobre sus reportes (US-06)
+router.get('/notifications', requireAuth, notificationController.getNotifications);
+router.get('/notifications/unread-count', requireAuth, notificationController.getUnreadCount);
+router.post('/notifications/read-all', requireAuth, notificationController.markAllRead);
+router.post('/notifications/:id/read', requireAuth, notificationController.markRead);
 
 // Reportes de la app del vecino (US-02 y US-03)
 router.use('/reports', reportRoutes);

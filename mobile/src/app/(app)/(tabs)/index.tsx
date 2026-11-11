@@ -1,7 +1,7 @@
 // Pantallas 07 · Inicio (mapa) y 08 · Detalle de punto (US-03)
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LeafletMap, type LeafletMapHandle } from '@/components/LeafletMap';
@@ -41,6 +41,19 @@ export default function Home() {
   const [selected, setSelected] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [unread, setUnread] = useState(0);
+
+  // Indicador de la campana (US-06): avisos sin leer; se actualiza al volver al mapa y cada 30 s
+  const refreshUnread = useCallback(() => {
+    if (!user) return;
+    api.unreadCount().then((r) => setUnread(r.unread)).catch(() => {});
+  }, [user]);
+  useFocusEffect(refreshUnread);
+  useEffect(() => {
+    if (!user) return undefined;
+    const timer = setInterval(refreshUnread, 30_000);
+    return () => clearInterval(timer);
+  }, [user, refreshUnread]);
 
   const load = useCallback(async (at: Point, status?: ReportStatus) => {
     setLoading(true);
@@ -126,6 +139,15 @@ export default function Home() {
               {loading ? 'Buscando reportes…' : `${reports.length} reporte${reports.length === 1 ? '' : 's'} a menos de ${RADIUS_M} m`}
             </Text>
           </View>
+          {user && (
+            <Pressable style={s.bell} onPress={() => router.push('/notifications')}
+              accessibilityLabel={unread ? `Notificaciones, ${unread} sin leer` : 'Notificaciones'}>
+              <Ionicons name="notifications-outline" size={23} color={colors.ink} />
+              {unread > 0 && (
+                <View style={s.badge}><Text style={s.badgeText}>{unread > 9 ? '9+' : unread}</Text></View>
+              )}
+            </Pressable>
+          )}
           <Pressable style={[s.avatar, !user && s.avatarGuest]} onPress={() => router.push('/profile')} accessibilityLabel="Perfil">
             {user ? <Text style={s.avatarText}>{initials(user.full_name)}</Text> : <Ionicons name="person-outline" size={22} color={colors.muted} />}
           </Pressable>
@@ -255,6 +277,9 @@ const s = StyleSheet.create({
   avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', elevation: 3 },
   avatarText: { color: '#fff', fontWeight: '800', fontSize: 16 },
   avatarGuest: { backgroundColor: colors.surface },
+  bell: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', elevation: 3, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 8 },
+  badge: { position: 'absolute', top: 6, right: 5, minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.surface },
+  badgeText: { color: '#fff', fontSize: 10, fontWeight: '800' },
   chip: { paddingHorizontal: 16, height: 38, borderRadius: radius.pill, backgroundColor: colors.surface, justifyContent: 'center', elevation: 2, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6 },
   chipActive: { backgroundColor: colors.ink },
   chipText: { fontWeight: '700', color: colors.ink, fontSize: 14 },

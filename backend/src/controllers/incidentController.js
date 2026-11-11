@@ -7,8 +7,8 @@
 
 const { query } = require('../config/db');
 const { imageUrl } = require('../services/storage');
-const { reportCode } = require('./reportController');
 const { TONS_BY_SIZE, urgencyOf, isCritical, tonsOf, titleOf, sumTons } = require('../services/incidentRules');
+const { STATUSES, changeStatus, timelinesFor, clusterCode, reportCode } = require('../services/reportStatus');
 
 const SELECT_INCIDENT = `
   SELECT
@@ -21,15 +21,23 @@ const SELECT_INCIDENT = `
   FROM incidents i
   LEFT JOIN users u ON u.id = i.user_id`;
 
-const toIncident = async ({ photo_key, ...row }, req) => ({
+const toIncident = async ({ photo_key, ...row }, req, timelines) => ({
   ...row,
   code: reportCode(row.id),
   title: titleOf(row),
   urgency: urgencyOf(row),
   critical: isCritical(row),
   estimated_tons: tonsOf(row),
+  cluster_code: clusterCode(row.cluster_id),
+  timeline: timelines.get(row.id) ?? [],
   photo_url: await imageUrl(photo_key, req),
 });
+
+/** Incidentes con su línea de seguimiento (recibido, agrupado, en ruta, recolectado). */
+const toIncidents = async (rows, req) => {
+  const timelines = await timelinesFor(rows);
+  return Promise.all(rows.map((row) => toIncident(row, req, timelines)));
+};
 
 /**
  * Obtiene los incidentes con sus coordenadas en decimal nativo.
@@ -52,7 +60,7 @@ const getIncidents = async (req, res, next) => {
 
     const where = whereClauses.length ? ` WHERE ${whereClauses.join(' AND ')}` : '';
     const result = await query(`${SELECT_INCIDENT}${where} ORDER BY i.created_at DESC;`, values);
-    const data = await Promise.all(result.rows.map((row) => toIncident(row, req)));
+    const data = await toIncidents(result.rows, req);
 
     return res.status(200).json({ success: true, count: data.length, data });
   } catch (error) {
@@ -76,38 +84,61 @@ const updateIncidentStatus = async (req, res, next) => {
       });
     }
 
-    const allowedStatuses = ['pending', 'assigned', 'resolved'];
     const normalizedStatus = String(req.body.status || '').toLowerCase();
-    if (!allowedStatuses.includes(normalizedStatus)) {
+    if (!STATUSES.includes(normalizedStatus)) {
       return res.status(400).json({
         success: false,
-        message: `Estado no válido. Los estados permitidos son: ${allowedStatuses.join(', ')}`,
+        message: `Estado no válido. Los estados permitidos son: ${STATUSES.join(', ')}`,
       });
     }
 
-    // resolved_at registra cuándo se atendió el punto (toneladas recolectadas del día)
-    const update = await query(
-      `UPDATE incidents
-          SET status = $1::incident_status, updated_at = NOW(),
-              resolved_at = CASE WHEN $1::incident_status = 'resolved' THEN COALESCE(resolved_at, NOW()) ELSE NULL END
-        WHERE id = $2 RETURNING id;`,
-      [normalizedStatus, incidentId]
-    );
-    if (update.rowCount === 0) {
+    const exists = await query('SELECT 1 FROM incidents WHERE id = $1', [incidentId]);
+    if (!exists.rowCount) {
       return res.status(404).json({
         success: false,
         message: `No se encontró ningún incidente con el ID ${incidentId}.`,
       });
     }
+    // Registra el cambio en el historial y avisa al vecino (US-06); resolved_at marca la hora de recolección
+    await changeStatus([incidentId], normalizedStatus);
 
     const result = await query(`${SELECT_INCIDENT} WHERE i.id = $1`, [incidentId]);
     return res.status(200).json({
       success: true,
       message: `El estado del incidente ${reportCode(incidentId)} ha sido actualizado a '${normalizedStatus}'.`,
-      data: await toIncident(result.rows[0], req),
+      data: (await toIncidents(result.rows, req))[0],
     });
   } catch (error) {
     console.error('[updateIncidentStatus Error]:', error);
+    return next(error);
+  }
+};
+
+/**
+ * Cambia el estado de varios incidentes seleccionados en la tabla (barra de selección de A3).
+ * Endpoint: PATCH /api/incidents/status
+ * Payload: { ids: number[], status: 'pending' | 'assigned' | 'resolved' }
+ */
+const updateManyStatus = async (req, res, next) => {
+  try {
+    const ids = [...new Set((Array.isArray(req.body.ids) ? req.body.ids : []).map((n) => parseInt(n, 10)).filter((n) => n > 0))];
+    const status = String(req.body.status || '').toLowerCase();
+    if (!ids.length || ids.length > 500) {
+      return res.status(400).json({ success: false, message: 'Seleccione entre 1 y 500 incidentes.' });
+    }
+    if (!STATUSES.includes(status)) {
+      return res.status(400).json({ success: false, message: `Estado no válido. Los estados permitidos son: ${STATUSES.join(', ')}` });
+    }
+    const changed = await changeStatus(ids, status);
+    const result = await query(`${SELECT_INCIDENT} WHERE i.id = ANY($1::int[]) ORDER BY i.created_at DESC`, [ids]);
+    const label = { pending: 'Pendiente', assigned: 'En ruta', resolved: 'Resuelto' }[status];
+    return res.status(200).json({
+      success: true,
+      message: `${changed.length} de ${ids.length} incidentes pasaron a «${label}»${changed.length < ids.length ? ' (los demás ya tenían ese estado)' : ''}.`,
+      changed,
+      data: await toIncidents(result.rows, req),
+    });
+  } catch (error) {
     return next(error);
   }
 };
@@ -153,4 +184,5 @@ module.exports = {
   getIncidents,
   getSummary,
   updateIncidentStatus,
+  updateManyStatus,
 };

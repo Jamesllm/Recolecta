@@ -74,6 +74,17 @@ export interface Incident {
   created_at: string;
   updated_at?: string;
   urgency: Urgency;
+  cluster_code: string | null; // clúster sugerido por K-Means (C-03)
+  timeline: TimelineStep[];
+}
+
+/** Paso de la línea de seguimiento: recibido → agrupado → en ruta → recolectado */
+export interface TimelineStep {
+  key: 'received' | 'grouped' | 'assigned' | 'resolved';
+  label: string;
+  done: boolean;
+  at: string | null;
+  detail: string | null;
 }
 
 export interface ClusterIncident {
@@ -127,8 +138,14 @@ export const formatDecimal = (n: number, digits = 2) => n.toFixed(digits).replac
 
 export const STATUS_LABELS: Record<IncidentStatus, string> = {
   pending: 'Pendiente',
-  assigned: 'Asignado',
+  assigned: 'En ruta',
   resolved: 'Resuelto',
+};
+
+export const URGENCY_LABELS: Record<Urgency, string> = {
+  high: 'Alta',
+  medium: 'Media',
+  low: 'Baja',
 };
 
 export const SIZE_LABELS: Record<Incident['estimated_size'], string> = {
@@ -179,6 +196,12 @@ export const incidentService = {
   async updateStatus(id: number, status: IncidentStatus): Promise<Incident> {
     const response = await call(() => apiClient.patch(`/incidents/${id}/status`, { status }));
     return response.data.data;
+  },
+
+  /** Cambia el estado de varios incidentes seleccionados; avisa a los vecinos con cuenta (US-06) */
+  async updateStatusMany(ids: number[], status: IncidentStatus): Promise<{ message: string; data: Incident[] }> {
+    const response = await call(() => apiClient.patch('/incidents/status', { ids, status }));
+    return { message: response.data.message, data: response.data.data };
   },
 };
 

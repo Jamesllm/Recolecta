@@ -9,6 +9,7 @@ const crypto = require('crypto');
 const { query } = require('../config/db');
 const { saveImage, imageUrl } = require('../services/storage');
 const { urgencyOf, isCritical, titleOf } = require('../services/incidentRules');
+const { recordCreated, timelinesFor, reportCode } = require('../services/reportStatus');
 
 const CATEGORIES = ['Orgánico', 'Inorgánico', 'Escombros', 'Peligroso'];
 const SIZES = ['small', 'medium', 'large'];
@@ -18,7 +19,6 @@ const MAX_RADIUS_M = 5000;
 const MAX_REFERENCE = 140;
 const EXT = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/heic': 'heic' };
 
-const reportCode = (id) => `RL-${String(id).padStart(4, '0')}`;
 
 /** Tipo real de la imagen según sus primeros bytes (algunos clientes envían application/octet-stream). */
 const detectImageType = (buf) => {
@@ -32,7 +32,7 @@ const detectImageType = (buf) => {
 
 const REPORT_COLUMNS = `
     i.id, i.user_id, i.device_id, i.photo_key, i.category, i.estimated_size, i.description, i.address, i.reference,
-    i.gps_accuracy_m, i.status, i.created_at, i.updated_at,
+    i.gps_accuracy_m, i.status, i.cluster_id, i.resolved_at, i.created_at, i.updated_at,
     ST_X(i.location) AS longitude,
     ST_Y(i.location) AS latitude`;
 
@@ -145,6 +145,7 @@ const createReport = async (req, res, next) => {
       [req.user ? req.user.id : null, req.deviceId, key, category, estimated_size, description || null, address, reference || null,
         Number.isFinite(accuracy) ? accuracy : null, longitude, latitude]
     );
+    await recordCreated(insert.rows[0].id);
     const [report] = await toReports([await findReport(insert.rows[0].id)], req);
 
     return res.status(201).json({
@@ -224,6 +225,8 @@ const getReport = async (req, res, next) => {
     const row = await findReport(id);
     if (!row) return res.status(404).json({ success: false, message: 'No se encontró el reporte.' });
     const [report] = await toReports([row], req);
+    // Línea de seguimiento de la pantalla 14 (US-06)
+    report.timeline = (await timelinesFor([row])).get(row.id);
     return res.status(200).json({ success: true, data: report });
   } catch (error) {
     return next(error);
