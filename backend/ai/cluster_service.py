@@ -7,8 +7,11 @@ Script: cluster_service.py
 Versión: Python 3.11+
 Descripción: Microservicio autónomo para la agrupación espacial de incidentes
              reportados en estado 'pending'. Utiliza Scikit-Learn (K-Means)
-             sobre coordenadas decimales extraídas de PostGIS y persiste los
-             centroides optimizados de vuelta en PostgreSQL.
+             sobre las coordenadas en metros, ponderadas por la carga estimada
+             de cada reporte, elige K con el coeficiente de silueta y persiste
+             los centroides y las métricas de la ejecución en PostgreSQL.
+             El modelo está en clustering.py y se evalúa en
+             notebooks/evaluacion_kmeans.ipynb.
 ==============================================================================
 """
 
@@ -17,14 +20,15 @@ import sys
 import argparse
 import logging
 from pathlib import Path
-from typing import Tuple, List, Optional
+from typing import Optional, Tuple
 
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import pandas as pd
 import numpy as np
-from sklearn.cluster import KMeans
 from dotenv import load_dotenv
+
+from clustering import choose_k, fit_kmeans, scores, to_degrees, to_meters, weights_from_sizes
 
 # ==============================================================================
 # 1. Configuración de Logging y Variables de Entorno
@@ -88,7 +92,8 @@ def fetch_pending_incidents(conn) -> pd.DataFrame:
         SELECT 
             id,
             ST_X(location::geometry) AS lng,
-            ST_Y(location::geometry) AS lat
+            ST_Y(location::geometry) AS lat,
+            estimated_size
         FROM incidents
         WHERE status = 'pending'
         ORDER BY id ASC;
@@ -110,56 +115,63 @@ def fetch_pending_incidents(conn) -> pd.DataFrame:
 # ==============================================================================
 # 4. Procesamiento de Machine Learning / Agrupamiento Espacial
 # ==============================================================================
-def compute_clusters(df: pd.DataFrame, target_k: int = 3) -> Tuple[pd.DataFrame, np.ndarray]:
+def compute_clusters(
+    df: pd.DataFrame, target_k: Optional[int] = None, k_max: int = 8, weighted: bool = True
+) -> Tuple[pd.DataFrame, np.ndarray, dict]:
     """
-    Ejecuta el algoritmo KMeans sobre las coordenadas [lng, lat].
-    Maneja exhaustivamente casos de borde:
-      - 0 puntos: retorna vacío.
-      - 1 punto: 1 clúster directo.
-      - N puntos < K: reduce dinámicamente K al número de puntos disponibles.
-    
+    Ejecuta K-Means sobre las coordenadas de los reportes convertidas a metros.
+      - target_k=None: prueba K de 2 a k_max y usa el de mayor coeficiente de silueta.
+      - target_k=N: usa N grupos (o menos, si hay menos reportes que N).
+      - weighted=True: cada reporte pesa sus toneladas estimadas (bolsa, pila o camión).
+
     Retorna:
       - df_labeled: DataFrame con columna 'cluster_label' asignada.
-      - centroids: Matriz numpy de forma (K, 2) con [lng, lat] de cada centroide.
+      - centroids: matriz (K, 2) con [lng, lat] de cada centroide.
+      - info: K usado, modo de elección, pesos y métricas (silueta y Davies-Bouldin).
     """
     num_samples = len(df)
 
     if num_samples == 0:
         logger.warning("No hay incidentes pendientes para procesar.")
-        return df, np.empty((0, 2))
+        return df, np.empty((0, 2)), {}
 
-    # Coordenadas como matriz de características [lng, lat]
-    coords = df[["lng", "lat"]].to_numpy(dtype=float)
+    X, ref = to_meters(df["lat"], df["lng"])
+    weights = weights_from_sizes(df["estimated_size"]) if weighted else None
 
-    # Caso borde: Menos puntos que el K solicitado
-    actual_k = min(target_k, num_samples)
-    if actual_k < target_k:
-        logger.warning(
-            f"Casos de borde detectado: Total de incidentes ({num_samples}) es menor que K={target_k}. "
-            f"Ajustando número de clústeres a K={actual_k}."
-        )
+    if target_k is None:
+        k, _ = choose_k(X, weights, k_max=k_max)
+        k_mode = "auto"
+        logger.info(f"K elegido automáticamente por silueta (2 a {k_max}): K={k}")
+    else:
+        k = min(target_k, num_samples)
+        k_mode = "manual"
+        if k < target_k:
+            logger.warning(f"Hay {num_samples} incidentes, menos que K={target_k}. Se usa K={k}.")
 
-    # Ejecución de K-Means
-    logger.info(f"Ejecutando algoritmo KMeans con K={actual_k} y n_init='auto'...")
-    kmeans = KMeans(n_clusters=actual_k, random_state=42, n_init="auto")
-    labels = kmeans.fit_predict(coords)
-    centroids = kmeans.cluster_centers_  # Formato [[lng, lat], ...]
+    model = fit_kmeans(X, k, weights)
+    silhouette, davies_bouldin = scores(X, model.labels_)
+    centroids = to_degrees(model.cluster_centers_, ref)[:, ::-1]  # [lat, lng] -> [lng, lat]
 
     df_labeled = df.copy()
-    df_labeled["cluster_label"] = labels
+    df_labeled["cluster_label"] = model.labels_
 
-    logger.info(f"Clustering completado. {actual_k} centroides calculados exitosamente.")
-    return df_labeled, centroids
+    info = {
+        "k": int(k), "k_mode": k_mode, "weighted": weighted, "incident_count": num_samples,
+        "silhouette": silhouette, "davies_bouldin": davies_bouldin,
+    }
+    fmt = lambda v: "n/d" if v is None else f"{v:.3f}"
+    logger.info(f"Clustering completado: K={k}, silueta={fmt(silhouette)}, Davies-Bouldin={fmt(davies_bouldin)}.")
+    return df_labeled, centroids, info
 
 
 # ==============================================================================
 # 5. Persistencia y Actualización en PostGIS
 # ==============================================================================
-def persist_clusters(conn, df_labeled: pd.DataFrame, centroids: np.ndarray, dry_run: bool = False):
+def persist_clusters(conn, df_labeled: pd.DataFrame, centroids: np.ndarray, info: dict, dry_run: bool = False):
     """
-    Inserta los centroides calculados en la tabla `clusters` usando PostGIS
-    ST_SetSRID(ST_MakePoint(lng, lat), 4326), y asocia cada incidente
-    a su respectivo `cluster_id`.
+    Registra la ejecución y sus métricas en `cluster_runs`, inserta los centroides
+    en `clusters` usando PostGIS ST_SetSRID(ST_MakePoint(lng, lat), 4326) y asocia
+    cada incidente a su respectivo `cluster_id`.
     """
     if len(centroids) == 0:
         logger.info("Nada que persistir en base de datos.")
@@ -178,12 +190,25 @@ def persist_clusters(conn, df_labeled: pd.DataFrame, centroids: np.ndarray, dry_
             logger.info("Desactivando clústeres activos anteriores...")
             cursor.execute("UPDATE clusters SET status = 'cleared', updated_at = NOW() WHERE status = 'active';")
 
-            # 2. Insertar cada centroide generado
+            # 2. Registrar la ejecución con el K usado y sus métricas
+            cursor.execute(
+                """
+                INSERT INTO cluster_runs (k, k_mode, incident_count, weighted, silhouette, davies_bouldin)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                RETURNING id;
+                """,
+                (info["k"], info["k_mode"], info["incident_count"], info["weighted"],
+                 info["silhouette"], info["davies_bouldin"]),
+            )
+            run_id = cursor.fetchone()[0]
+
+            # 3. Insertar cada centroide generado
             insert_cluster_sql = """
                 INSERT INTO clusters (
                     centroid,
                     incident_count,
                     status,
+                    run_id,
                     created_at,
                     updated_at
                 )
@@ -191,6 +216,7 @@ def persist_clusters(conn, df_labeled: pd.DataFrame, centroids: np.ndarray, dry_
                     ST_SetSRID(ST_MakePoint(%s, %s), 4326),
                     %s,
                     'active',
+                    %s,
                     NOW(),
                     NOW()
                 )
@@ -210,7 +236,7 @@ def persist_clusters(conn, df_labeled: pd.DataFrame, centroids: np.ndarray, dry_
                 incident_count = len(cluster_incidents)
 
                 # Insertar registro de clúster con punto PostGIS (X: lng, Y: lat)
-                cursor.execute(insert_cluster_sql, (float(lng), float(lat), incident_count))
+                cursor.execute(insert_cluster_sql, (float(lng), float(lat), incident_count, run_id))
                 cluster_id = cursor.fetchone()[0]
 
                 logger.info(
@@ -241,8 +267,19 @@ def main():
     parser.add_argument(
         "-k", "--clusters",
         type=int,
-        default=int(os.getenv("DEFAULT_CLUSTERS_K", 3)),
-        help="Número objetivo de clústeres (K). Por defecto 3 o valor en .env."
+        default=None,
+        help="Número de clústeres (K). Si se omite, se elige automáticamente por silueta."
+    )
+    parser.add_argument(
+        "--k-max",
+        type=int,
+        default=int(os.getenv("CLUSTERS_K_MAX", 8)),
+        help="K máximo que se prueba en la elección automática. Por defecto 8 o valor en .env."
+    )
+    parser.add_argument(
+        "--no-weights",
+        action="store_true",
+        help="Trata todos los reportes igual, sin ponderar por la carga estimada."
     )
     parser.add_argument(
         "--dry-run",
@@ -256,7 +293,8 @@ def main():
     try:
         logger.info("==========================================================")
         logger.info("Iniciando Módulo de IA: Clustering de Incidentes")
-        logger.info(f"Configuración: K objetivo = {args.clusters}, Dry-run = {args.dry_run}")
+        k_text = args.clusters or f"automático (2 a {args.k_max})"
+        logger.info(f"Configuración: K = {k_text}, pesos = {not args.no_weights}, Dry-run = {args.dry_run}")
         logger.info("==========================================================")
 
         # Paso 1: Conectar a PostgreSQL
@@ -270,10 +308,12 @@ def main():
             return
 
         # Paso 3: Aplicar K-Means espacial y obtener centroides
-        df_labeled, centroids = compute_clusters(df_incidents, target_k=args.clusters)
+        df_labeled, centroids, info = compute_clusters(
+            df_incidents, target_k=args.clusters, k_max=args.k_max, weighted=not args.no_weights
+        )
 
         # Paso 4: Persistir resultados en PostGIS
-        persist_clusters(conn, df_labeled, centroids, dry_run=args.dry_run)
+        persist_clusters(conn, df_labeled, centroids, info, dry_run=args.dry_run)
 
         logger.info(" Proceso de clustering finalizado con éxito.")
 

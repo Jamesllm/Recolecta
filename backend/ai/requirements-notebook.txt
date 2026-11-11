@@ -1,0 +1,7 @@
+# Dependencias extra para ejecutar notebooks/evaluacion_kmeans.ipynb
+-r requirements.txt
+matplotlib>=3.8
+scipy>=1.11
+ipykernel>=6.29
+nbclient>=0.10
+nbformat>=5.10

@@ -238,13 +238,26 @@ python cluster_service.py -k 3
 
 ## Motor de Inteligencia Artificial
 
-El servicio ubicado en `backend/ai/cluster_service.py` aplica el algoritmo de aprendizaje no supervisado **K-Means** sobre las coordenadas geograficas proyectadas en WGS84 de todos los reportes en estado `pending`.
+El servicio ubicado en `backend/ai/cluster_service.py` aplica el algoritmo de aprendizaje no supervisado **K-Means** sobre los reportes en estado `pending`. El modelo vive en `backend/ai/clustering.py`, que comparten el servicio y el notebook de evaluación.
 
-1. **Extraccion**: Consulta a PostgreSQL filtrando puntos pendientes en el distrito seleccionado.
-2. **Transformacion Matricial**: Construccion de la matriz de caracteristicas espaciales bidimensionales (`latitude`, `longitude`).
-3. **Optimizacion de Centroides**: Convergencia de centroides mediante optimizacion de distancias euclidianas directas minimizadas.
-4. **Persistencia Transaccional**: Registro de los clústeres resultantes en la tabla `clusters` y asociacion masiva a cada registro de incidente.
-5. **Ruta Heuristica**: Ordenamiento secuencial de puntos prioritarios orientado a maximizar el rendimiento de la flota recolectora municipal.
+1. **Extraccion**: Consulta a PostgreSQL de los reportes pendientes con su ubicacion y tamaño estimado.
+2. **Preparacion**: Conversion de latitud y longitud a metros (proyeccion equirectangular local) y peso de cada reporte = toneladas estimadas segun su tamaño.
+3. **Eleccion de K (Sprint 2)**: Si el gestor deja «Automatico (IA)», se entrena un modelo por cada K de 2 a 8 y se usa el de mayor coeficiente de silueta. Tambien puede indicar K a mano.
+4. **Persistencia Transaccional**: Registro de la ejecucion (K, modo, silueta y Davies-Bouldin) en `cluster_runs`, de los clústeres en `clusters` y asociacion de cada incidente a su clúster.
+5. **Ruta Heuristica**: El panel ordena las paradas de cada clúster por vecino mas cercano a partir del centroide.
+
+### Evaluacion del modelo (APF3)
+
+- `backend/ai/notebooks/evaluacion_kmeans.ipynb`: eleccion de K (codo, silueta y Davies-Bouldin), validacion contra focos conocidos (ARI y tabla foco × clúster), prueba 80/20, comparacion con otras opciones (grados, sin pesos, DBSCAN) y estabilidad con 20 datasets. Las figuras se guardan en `backend/ai/notebooks/figuras/`.
+- `backend/ai/simulate_reports.py`: genera `backend/ai/data/reportes_simulados_chiclayo.csv`, 400 reportes **simulados** alrededor de cinco focos inventados en el centro de Chiclayo. Con `--load` los carga en la BD como pendientes (marcados con `device_id = 'simulado-apf3'`) y con `--clear` los borra.
+
+```bash
+cd backend/ai
+pip install -r requirements-notebook.txt
+python simulate_reports.py --load      # datos de prueba en la BD
+python cluster_service.py              # K automatico por silueta
+python cluster_service.py -k 4         # K fijo
+```
 
 ---
 

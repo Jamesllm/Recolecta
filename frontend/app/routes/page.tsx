@@ -6,11 +6,19 @@ import { Header } from '@/components/layout/Header';
 import { ClusterCard } from '@/components/routes/ClusterCard';
 import { RoutePanel } from '@/components/routes/RoutePanel';
 import { DynamicRouteMap } from '@/components/maps/DynamicRouteMap';
-import { Cluster, clusterService, errorMessage, formatTons } from '@/services/api';
-import { AlertCircle, ChevronRight, RefreshCw, Sparkles, Zap } from 'lucide-react';
+import { Cluster, ClusterRun, clusterService, errorMessage, formatDecimal, formatTons, silhouetteLevel } from '@/services/api';
+import { AlertCircle, ChevronRight, Gauge, RefreshCw, Sparkles, Zap } from 'lucide-react';
+
+const TONE_CLASSES = {
+  good: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  ok: 'bg-sky-50 text-sky-700 border-sky-200',
+  weak: 'bg-amber-50 text-amber-700 border-amber-200',
+  none: 'bg-slate-50 text-slate-600 border-slate-200',
+};
 
 export default function RoutesPage() {
   const [clusters, setClusters] = useState<Cluster[]>([]);
+  const [run, setRun] = useState<ClusterRun | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -19,8 +27,9 @@ export default function RoutesPage() {
     try {
       setIsLoading(true);
       setError(null);
-      const data = await clusterService.getClusters();
+      const { clusters: data, run: lastRun } = await clusterService.getOverview();
       setClusters(data);
+      setRun(lastRun);
       // Respeta el clúster elegido desde el panel general (/routes?cluster=ID)
       const requested = Number(new URLSearchParams(window.location.search).get('cluster'));
       setSelectedId((cur) => {
@@ -40,6 +49,7 @@ export default function RoutesPage() {
 
   const selected = clusters.find((c) => c.id === selectedId) ?? null;
   const maxCount = Math.max(1, ...clusters.map((c) => c.incident_count));
+  const quality = silhouetteLevel(run?.silhouette ?? null);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -67,6 +77,27 @@ export default function RoutesPage() {
             </button>
           </div>
         </div>
+
+        {run && clusters.length > 0 && (
+          <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-6 px-4 py-3 rounded-2xl border border-slate-200/80 bg-white text-xs">
+            <div className="flex items-center gap-2 text-slate-700 whitespace-nowrap">
+              <Gauge className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span className="font-bold text-slate-900">Última ejecución de K-Means</span>
+            </div>
+            <span className="text-slate-600">
+              <b className="text-slate-900">K = {run.k}</b> · {run.k_mode === 'auto' ? 'elegido automáticamente por silueta (2 a 8)' : 'indicado por el gestor'}
+            </span>
+            <span className="text-slate-600">
+              {run.incident_count} reportes · {run.weighted ? 'ponderados por carga estimada' : 'sin ponderar'}
+            </span>
+            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border font-semibold md:ml-auto ${TONE_CLASSES[quality.tone]}`}>
+              Silueta {run.silhouette == null ? 'n/d' : formatDecimal(run.silhouette)} · {quality.label}
+            </span>
+            {run.davies_bouldin != null && (
+              <span className="text-slate-500">Davies-Bouldin {formatDecimal(run.davies_bouldin)}</span>
+            )}
+          </div>
+        )}
 
         {error && (
           <div className="flex items-center gap-2 px-4 py-3 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-sm font-medium">

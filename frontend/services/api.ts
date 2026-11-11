@@ -101,6 +101,30 @@ export interface Cluster {
   incidents: ClusterIncident[];
 }
 
+/** Ejecución de K-Means que generó los clústeres activos (tabla cluster_runs) */
+export interface ClusterRun {
+  id: number;
+  k: number;
+  k_mode: 'auto' | 'manual'; // auto: K elegido por silueta; manual: K indicado por el gestor
+  incident_count: number;
+  weighted: boolean; // reportes ponderados por su carga estimada
+  silhouette: number | null; // -1 a 1, más alto es mejor
+  davies_bouldin: number | null; // más bajo es mejor
+  created_at: string;
+}
+
+/** Lectura de la silueta según Kaufman y Rousseeuw (1990) */
+export const silhouetteLevel = (s: number | null): { label: string; tone: 'good' | 'ok' | 'weak' | 'none' } => {
+  if (s == null) return { label: 'sin medir', tone: 'none' };
+  if (s > 0.7) return { label: 'estructura fuerte', tone: 'good' };
+  if (s > 0.5) return { label: 'estructura razonable', tone: 'ok' };
+  if (s > 0.25) return { label: 'estructura débil', tone: 'weak' };
+  return { label: 'sin estructura clara', tone: 'none' };
+};
+
+/** Número con coma decimal: 0,51 */
+export const formatDecimal = (n: number, digits = 2) => n.toFixed(digits).replace('.', ',');
+
 export const STATUS_LABELS: Record<IncidentStatus, string> = {
   pending: 'Pendiente',
   assigned: 'Asignado',
@@ -165,8 +189,14 @@ export const clusterService = {
     return response.data.data;
   },
 
-  /** Ejecuta K-Means (backend/ai/cluster_service.py) sobre los reportes pendientes */
-  async run(k: number): Promise<string> {
+  /** Clústeres activos junto con la ejecución de K-Means que los generó */
+  async getOverview(): Promise<{ clusters: Cluster[]; run: ClusterRun | null }> {
+    const response = await call(() => apiClient.get('/clusters'));
+    return { clusters: response.data.data, run: response.data.run ?? null };
+  },
+
+  /** Ejecuta K-Means (backend/ai/cluster_service.py) sobre los reportes pendientes; 'auto' elige K por silueta */
+  async run(k: number | 'auto'): Promise<string> {
     const response = await call(() => apiClient.post('/clusters/run', { k }, { timeout: 130000 }));
     return response.data.message;
   },

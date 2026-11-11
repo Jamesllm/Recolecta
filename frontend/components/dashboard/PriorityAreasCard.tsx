@@ -11,11 +11,12 @@ interface PriorityAreasCardProps {
   onClustersUpdated: () => Promise<void>;
 }
 
-const K_OPTIONS = [2, 3, 4, 5];
+// «auto»: el servicio prueba K de 2 a 8 y usa el de mayor coeficiente de silueta
+const K_OPTIONS: Array<number | 'auto'> = ['auto', 2, 3, 4, 5, 6, 7, 8];
 
 export const PriorityAreasCard: React.FC<PriorityAreasCardProps> = ({ clusters, pendingCount, onClustersUpdated }) => {
   const router = useRouter();
-  const [k, setK] = useState(3);
+  const [k, setK] = useState<number | 'auto'>('auto');
   const [isRunning, setIsRunning] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const maxCount = Math.max(1, ...clusters.map((c) => c.incident_count));
@@ -110,10 +111,10 @@ export const PriorityAreasCard: React.FC<PriorityAreasCardProps> = ({ clusters, 
           <span>Número de clústeres (K)</span>
           <select
             value={k}
-            onChange={(e) => setK(Number(e.target.value))}
+            onChange={(e) => setK(e.target.value === 'auto' ? 'auto' : Number(e.target.value))}
             className="px-2 py-1 border border-slate-200 rounded-lg bg-white text-slate-800 font-semibold"
           >
-            {K_OPTIONS.map((n) => <option key={n} value={n}>{n}</option>)}
+            {K_OPTIONS.map((n) => <option key={n} value={n}>{n === 'auto' ? 'Automático (IA)' : n}</option>)}
           </select>
         </label>
         <button

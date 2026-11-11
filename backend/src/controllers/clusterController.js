@@ -28,6 +28,24 @@ const DEFAULT_PYTHON = process.platform === 'win32'
   ? path.join(__dirname, '..', '..', 'ai', 'venv', 'Scripts', 'python.exe')
   : path.join(__dirname, '..', '..', 'ai', 'venv', 'bin', 'python');
 
+/** Ejecución de K-Means que generó los clústeres activos: K usado, modo de elección y métricas. */
+const latestRun = async () => {
+  const result = await query(`
+    SELECT id, k, k_mode, incident_count, weighted, silhouette, davies_bouldin, created_at
+    FROM cluster_runs
+    WHERE id = (SELECT MAX(run_id) FROM clusters WHERE status = 'active')`);
+  return result.rows[0] ?? null;
+};
+
+/** Lectura de la silueta según Kaufman y Rousseeuw (1990). */
+const silhouetteLabel = (s) => {
+  if (s == null) return 'sin medir';
+  if (s > 0.7) return 'estructura fuerte';
+  if (s > 0.5) return 'estructura razonable';
+  if (s > 0.25) return 'estructura débil';
+  return 'sin estructura clara';
+};
+
 /**
  * Clústeres activos con los reportes que agrupa cada uno.
  * Endpoint: GET /api/clusters
@@ -55,7 +73,8 @@ const getClusters = async (req, res, next) => {
       estimated_tons: sumTons(c.incidents),
       incidents: c.incidents.map((i) => ({ ...i, code: reportCode(i.id), urgency: urgencyOf(i), estimated_tons: tonsOf(i) })),
     }));
-    return res.status(200).json({ success: true, count: data.length, data });
+    const run = await latestRun();
+    return res.status(200).json({ success: true, count: data.length, data, run });
   } catch (error) {
     return next(error);
   }
@@ -63,26 +82,38 @@ const getClusters = async (req, res, next) => {
 
 /**
  * Ejecuta el agrupamiento K-Means (backend/ai/cluster_service.py) sobre los reportes pendientes.
- * Endpoint: POST /api/clusters/run  Payload: { k?: number }
+ * Endpoint: POST /api/clusters/run  Payload: { k?: number | 'auto' }
+ * Sin k (o con 'auto'), el servicio prueba K de 2 a 8 y usa el de mayor silueta.
  */
 const runClustering = async (req, res, next) => {
   try {
-    const k = Math.min(Math.max(parseInt(req.body.k, 10) || 3, 1), 20);
+    const manualK = parseInt(req.body.k, 10);
+    const args = [SCRIPT];
+    if (manualK > 0) args.push('-k', String(Math.min(manualK, 20)));
+
     const pending = await query("SELECT COUNT(*)::int AS n FROM incidents WHERE status = 'pending'");
     if (!pending.rows[0].n) {
       return res.status(409).json({ success: false, message: 'No hay reportes pendientes para agrupar.' });
     }
 
     const python = process.env.PYTHON_BIN || DEFAULT_PYTHON;
-    execFile(python, [SCRIPT, '-k', String(k)], { cwd: path.dirname(SCRIPT), timeout: 120000 }, (err, stdout, stderr) => {
+    execFile(python, args, { cwd: path.dirname(SCRIPT), timeout: 120000 }, async (err, stdout, stderr) => {
       if (err) {
         console.error('[runClustering Error]:', err.message, stderr || stdout);
         return res.status(500).json({ success: false, message: 'El servicio K-Means terminó con error. Revise la consola del backend.' });
       }
-      return res.status(200).json({
-        success: true,
-        message: `Agrupamiento K-Means ejecutado sobre ${pending.rows[0].n} reportes pendientes (K = ${Math.min(k, pending.rows[0].n)}).`,
-      });
+      try {
+        const run = await latestRun();
+        const how = run?.k_mode === 'auto' ? 'elegido por silueta' : 'indicado por el gestor';
+        const quality = run?.silhouette == null ? '' : `, silueta ${run.silhouette.toFixed(2)} (${silhouetteLabel(run.silhouette)})`;
+        return res.status(200).json({
+          success: true,
+          message: `K-Means agrupó ${pending.rows[0].n} reportes pendientes en ${run?.k ?? '?'} zonas (K ${how}${quality}).`,
+          run,
+        });
+      } catch (error) {
+        return next(error);
+      }
     });
   } catch (error) {
     return next(error);

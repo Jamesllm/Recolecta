@@ -64,6 +64,20 @@ CREATE TABLE IF NOT EXISTS clusters (
 -- Índice espacial para clusters
 CREATE INDEX IF NOT EXISTS idx_clusters_centroid ON clusters USING GIST (centroid);
 
+-- Ejecuciones del agrupamiento K-Means (US-04, Sprint 2): K usado y métricas de calidad.
+-- k_mode: 'auto' (K elegido por silueta) o 'manual' (K indicado por el gestor).
+CREATE TABLE IF NOT EXISTS cluster_runs (
+    id SERIAL PRIMARY KEY,
+    k INTEGER NOT NULL,
+    k_mode VARCHAR(10) NOT NULL CHECK (k_mode IN ('auto', 'manual')),
+    incident_count INTEGER NOT NULL,
+    weighted BOOLEAN NOT NULL,
+    silhouette REAL,
+    davies_bouldin REAL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+ALTER TABLE clusters ADD COLUMN IF NOT EXISTS run_id INTEGER REFERENCES cluster_runs(id) ON DELETE SET NULL;
+
 -- Reportes ciudadanos (US-02). En el panel se gestionan como «incidentes».
 -- user_id es nulo cuando el vecino reporta como invitado; device_id identifica su teléfono de forma anónima.
 CREATE TABLE IF NOT EXISTS incidents (
