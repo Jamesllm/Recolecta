@@ -6,6 +6,29 @@
 const bcrypt = require('bcryptjs');
 const { query } = require('../config/db');
 const { signToken, deviceIdOf } = require('../middlewares/auth');
+const { sendMail } = require('../services/mailer');
+const { getSettings } = require('../services/settings');
+
+/** Correo de bienvenida (regla de Configuración, A8). No bloquea el registro si el correo falla. */
+const sendWelcome = (user) => {
+  Promise.resolve().then(async () => {
+    try {
+      if (!(await getSettings()).welcome_email) return;
+      await sendMail({
+        to: user.email,
+        subject: '¡Bienvenido a Recolecta+!',
+        title: `¡Hola, ${user.full_name.split(' ')[0]}! Tu cuenta está lista`,
+        paragraphs: [
+          'Gracias por unirte a Recolecta+. Con tu cuenta puedes reportar puntos de acumulación de residuos con una foto y su ubicación, y seguir cada reporte desde «Mis reportes».',
+          'Te avisaremos en la app, en «Notificaciones», cuando el municipio cambie el estado de tus reportes, y por correo cuando sean recolectados.',
+          'Si no creaste esta cuenta, ignora este mensaje.',
+        ],
+      });
+    } catch (error) {
+      console.error('[Correo de bienvenida]:', error.message);
+    }
+  });
+};
 
 /** Los reportes enviados como invitado desde este teléfono pasan a la cuenta que se registra o inicia sesión en él. */
 const claimGuestReports = async (userId, req) => {
@@ -72,6 +95,7 @@ const register = async (req, res, next) => {
     );
     const user = (await query(`${SELECT_USER} WHERE u.id = $1`, [inserted.rows[0].id])).rows[0];
     await claimGuestReports(user.id, req);
+    sendWelcome(user);
 
     return res.status(201).json({
       success: true,

@@ -13,4 +13,7 @@ router.get('/', clusterController.getClusters);
 // POST /api/clusters/run - Ejecutar K-Means sobre los reportes pendientes
 router.post('/run', clusterController.runClustering);
 
+// GET /api/clusters/:id/route - Ruta por calles (OSRM) de las paradas pendientes del clúster
+router.get('/:id/route', clusterController.getClusterRoute);
+
 module.exports = router;

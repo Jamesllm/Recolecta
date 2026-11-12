@@ -5,9 +5,19 @@
 
 const { query } = require('../config/db');
 const { sendMail } = require('./mailer');
+const { getSettings } = require('./settings');
 const { titleOf } = require('./incidentRules');
 
-const STATUSES = ['pending', 'assigned', 'resolved'];
+const STATUSES = ['pending', 'assigned', 'resolved', 'rejected'];
+
+// Motivos para rechazar un reporte (US-05, pantalla A4)
+const REJECTION_REASONS = [
+  'Reporte duplicado',
+  'La foto no muestra residuos',
+  'Fuera del distrito',
+  'El punto ya estaba limpio',
+  'Contenido inapropiado',
+];
 
 const reportCode = (id) => `RL-${String(id).padStart(4, '0')}`;
 const clusterCode = (id) => (id == null ? null : `C-${String(id).padStart(2, '0')}`);
@@ -20,13 +30,20 @@ const noticeFor = (row, status) => {
   if (status === 'assigned') {
     return { title: `Tu reporte ${code} está en ruta`, body: `El municipio asignó tu reporte de ${what}${where} a una ruta de recolección.` };
   }
+  if (status === 'rejected') {
+    return {
+      title: `Tu reporte ${code} no fue aceptado`,
+      body: `El municipio revisó tu reporte de ${what}${where} y no lo aceptó. Motivo: ${(row.rejection_reason || 'sin motivo').toLowerCase()}.`,
+    };
+  }
   if (status === 'resolved') {
     return { title: `Tu reporte ${code} fue atendido`, body: `El municipio recolectó los ${what}${where}. ¡Gracias por ayudar a mantener limpio tu distrito!` };
   }
   return { title: `Tu reporte ${code} volvió a «Pendiente»`, body: `El municipio volverá a revisar tu reporte de ${what}${where}.` };
 };
 
-const emailOnResolved = () => process.env.NOTIFY_EMAIL_ON_RESOLVED !== 'false';
+// Regla «Avisar al vecino por correo cuando se resuelva su reporte» (Configuración, A8)
+const emailOnResolved = async () => (await getSettings()).notify_email_on_resolved;
 
 /** Correo del aviso de «Resuelto»; no bloquea la respuesta al gestor. */
 const emailNotices = (notices) => {
@@ -52,14 +69,15 @@ const emailNotices = (notices) => {
  * registra el cambio en el historial y avisa al vecino si envió el reporte con su cuenta.
  * Devuelve los identificadores que cambiaron.
  */
-const changeStatus = async (ids, status) => {
+const changeStatus = async (ids, status, reason = null) => {
   const changed = await query(
     `UPDATE incidents
         SET status = $1::incident_status, updated_at = NOW(),
-            resolved_at = CASE WHEN $1::incident_status = 'resolved' THEN COALESCE(resolved_at, NOW()) ELSE NULL END
+            resolved_at = CASE WHEN $1::incident_status = 'resolved' THEN COALESCE(resolved_at, NOW()) ELSE NULL END,
+            rejection_reason = CASE WHEN $1::incident_status = 'rejected' THEN $3 ELSE NULL END
       WHERE id = ANY($2::int[]) AND status <> $1::incident_status
-      RETURNING id, user_id, category, address;`,
-    [status, ids]
+      RETURNING id, user_id, category, address, rejection_reason;`,
+    [status, ids, status === 'rejected' ? reason : null]
   );
   if (!changed.rowCount) return [];
   const changedIds = changed.rows.map((r) => r.id);
@@ -76,7 +94,7 @@ const changeStatus = async (ids, status) => {
     notices.push({ id: inserted.rows[0].id, user_id: row.user_id, title, body });
   }
 
-  if (status === 'resolved' && emailOnResolved() && notices.length) {
+  if (status === 'resolved' && notices.length && (await emailOnResolved())) {
     const users = await query('SELECT id, email, full_name FROM users WHERE id = ANY($1::int[])', [notices.map((n) => n.user_id)]);
     const byId = new Map(users.rows.map((u) => [u.id, u]));
     emailNotices(notices.map((n) => ({ ...n, ...byId.get(n.user_id) })));
@@ -91,7 +109,8 @@ const recordCreated = (incidentId) =>
 /**
  * Línea de seguimiento de cada reporte (pantallas A4 del panel y 14 de la app):
  * recibido → agrupado por la IA en una zona → asignado a una ruta → recolectado.
- * Recibe filas con id, status, created_at, resolved_at y cluster_id. Devuelve un Map id → pasos.
+ * Un reporte rechazado muestra «Reporte recibido» y «Rechazado por el municipio» con el motivo.
+ * Recibe filas con id, status, created_at, resolved_at, cluster_id y rejection_reason. Devuelve un Map id → pasos.
  */
 const timelinesFor = async (rows) => {
   const ids = rows.map((r) => r.id);
@@ -106,9 +125,16 @@ const timelinesFor = async (rows) => {
   const clusterAt = new Map(clusters.rows.map((c) => [c.id, c.created_at]));
 
   return new Map(rows.map((r) => {
+    const received = { key: 'received', label: 'Reporte recibido', done: true, at: r.created_at, detail: null };
+    if (r.status === 'rejected') {
+      return [r.id, [
+        received,
+        { key: 'rejected', label: 'Rechazado por el municipio', done: true, at: eventAt.get(`${r.id}:rejected`) ?? null, detail: r.rejection_reason ? `Motivo: ${r.rejection_reason}` : null },
+      ]];
+    }
     const onRoute = r.status === 'assigned' || r.status === 'resolved';
     return [r.id, [
-      { key: 'received', label: 'Reporte recibido', done: true, at: r.created_at, detail: null },
+      received,
       {
         key: 'grouped', label: 'Agrupado en una zona prioritaria', done: r.cluster_id != null,
         at: clusterAt.get(r.cluster_id) ?? null, detail: r.cluster_id != null ? `Zona ${clusterCode(r.cluster_id)} (K-Means)` : null,
@@ -119,4 +145,4 @@ const timelinesFor = async (rows) => {
   }));
 };
 
-module.exports = { STATUSES, changeStatus, recordCreated, timelinesFor, clusterCode, reportCode };
+module.exports = { STATUSES, REJECTION_REASONS, changeStatus, recordCreated, timelinesFor, clusterCode, reportCode };

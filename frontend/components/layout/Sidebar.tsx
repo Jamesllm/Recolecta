@@ -45,17 +45,17 @@ const navItems: NavItem[] = [
   },
   {
     name: 'Flota de recogida',
-    href: '#fleet',
+    href: '/fleet',
     icon: Truck,
   },
   {
     name: 'Análisis',
-    href: '#analytics',
+    href: '/analytics',
     icon: BarChart3,
   },
   {
     name: 'Configuración',
-    href: '#settings',
+    href: '/settings',
     icon: Settings,
   },
 ];

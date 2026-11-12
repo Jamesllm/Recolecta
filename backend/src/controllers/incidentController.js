@@ -8,12 +8,20 @@
 const { query } = require('../config/db');
 const { imageUrl } = require('../services/storage');
 const { TONS_BY_SIZE, urgencyOf, isCritical, tonsOf, titleOf, sumTons } = require('../services/incidentRules');
-const { STATUSES, changeStatus, timelinesFor, clusterCode, reportCode } = require('../services/reportStatus');
+const { STATUSES, REJECTION_REASONS, changeStatus, timelinesFor, clusterCode, reportCode } = require('../services/reportStatus');
+
+const STATUS_LABEL = { pending: 'Pendiente', assigned: 'En ruta', resolved: 'Resuelto', rejected: 'Rechazado' };
+
+/** Para rechazar se exige uno de los motivos de la lista. Devuelve el mensaje de error o null. */
+const rejectionError = (status, reason) =>
+  status === 'rejected' && !REJECTION_REASONS.includes(reason)
+    ? `Elija el motivo del rechazo: ${REJECTION_REASONS.join(', ')}.`
+    : null;
 
 const SELECT_INCIDENT = `
   SELECT
     i.id, i.user_id, COALESCE(u.full_name, 'Invitado') AS reporter_name, i.photo_key, i.category, i.estimated_size,
-    i.description, i.address, i.reference, i.status, i.cluster_id,
+    i.description, i.address, i.reference, i.status, i.cluster_id, i.rejection_reason,
     ST_X(i.location) AS longitude,
     ST_Y(i.location) AS latitude,
     (SELECT COUNT(*)::int FROM incident_confirmations ic WHERE ic.incident_id = i.id) AS confirmations,
@@ -92,6 +100,9 @@ const updateIncidentStatus = async (req, res, next) => {
       });
     }
 
+    const reasonError = rejectionError(normalizedStatus, req.body.reason);
+    if (reasonError) return res.status(400).json({ success: false, message: reasonError });
+
     const exists = await query('SELECT 1 FROM incidents WHERE id = $1', [incidentId]);
     if (!exists.rowCount) {
       return res.status(404).json({
@@ -100,12 +111,12 @@ const updateIncidentStatus = async (req, res, next) => {
       });
     }
     // Registra el cambio en el historial y avisa al vecino (US-06); resolved_at marca la hora de recolección
-    await changeStatus([incidentId], normalizedStatus);
+    await changeStatus([incidentId], normalizedStatus, req.body.reason);
 
     const result = await query(`${SELECT_INCIDENT} WHERE i.id = $1`, [incidentId]);
     return res.status(200).json({
       success: true,
-      message: `El estado del incidente ${reportCode(incidentId)} ha sido actualizado a '${normalizedStatus}'.`,
+      message: `El incidente ${reportCode(incidentId)} pasó a «${STATUS_LABEL[normalizedStatus]}».`,
       data: (await toIncidents(result.rows, req))[0],
     });
   } catch (error) {
@@ -129,9 +140,11 @@ const updateManyStatus = async (req, res, next) => {
     if (!STATUSES.includes(status)) {
       return res.status(400).json({ success: false, message: `Estado no válido. Los estados permitidos son: ${STATUSES.join(', ')}` });
     }
-    const changed = await changeStatus(ids, status);
+    const reasonError = rejectionError(status, req.body.reason);
+    if (reasonError) return res.status(400).json({ success: false, message: reasonError });
+    const changed = await changeStatus(ids, status, req.body.reason);
     const result = await query(`${SELECT_INCIDENT} WHERE i.id = ANY($1::int[]) ORDER BY i.created_at DESC`, [ids]);
-    const label = { pending: 'Pendiente', assigned: 'En ruta', resolved: 'Resuelto' }[status];
+    const label = STATUS_LABEL[status];
     return res.status(200).json({
       success: true,
       message: `${changed.length} de ${ids.length} incidentes pasaron a «${label}»${changed.length < ids.length ? ' (los demás ya tenían ese estado)' : ''}.`,
@@ -158,7 +171,7 @@ const getSummary = async (req, res, next) => {
              (i.resolved_at AT TIME ZONE 'America/Lima')::date = (NOW() AT TIME ZONE 'America/Lima')::date AS resolved_today
         FROM incidents i;`);
     const rows = result.rows;
-    const open = rows.filter((r) => r.status !== 'resolved');
+    const open = rows.filter((r) => r.status === 'pending' || r.status === 'assigned');
     const routes = new Set(rows.filter((r) => r.status === 'assigned' && r.cluster_id !== null).map((r) => r.cluster_id));
     const collected = rows.filter((r) => r.status === 'resolved' && r.resolved_today);
     return res.status(200).json({

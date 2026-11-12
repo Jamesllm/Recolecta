@@ -2,7 +2,7 @@
 
 import React from 'react';
 import dynamic from 'next/dynamic';
-import { Cluster } from '@/services/api';
+import { Cluster, RoadRoute } from '@/services/api';
 import { Route } from 'lucide-react';
 
 const LeafletRouteMapComponent = dynamic(
@@ -22,6 +22,7 @@ const LeafletRouteMapComponent = dynamic(
 
 interface DynamicRouteMapProps {
   cluster: Cluster;
+  route: RoadRoute | null;
 }
 
 export const DynamicRouteMap: React.FC<DynamicRouteMapProps> = (props) => {

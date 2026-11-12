@@ -112,7 +112,8 @@ Criterios de aceptacion y estado de cada uno: [docs/sprint-2/criterios-aceptacio
 | Historia de Usuario | Descripcion Funcional | Capa de Implementacion |
 |:---|:---|:---|
 | `US-01` **Registro e Inicio de Sesion** | Crear cuenta con ubigeo, iniciar sesion y recuperar la contrasena con un enlace por correo que caduca en 30 minutos. | `mobile/`, `POST /api/password/forgot`, `GET /reset-password` |
-| `US-05` **Filtros y Revision de Incidentes** | Busqueda y filtros por categoria, urgencia, estado y periodo; detalle con clúster sugerido y linea de seguimiento; seleccion multiple para cambiar estado o asignar a ruta. | `frontend/`, `PATCH /api/incidents/status` |
+| `US-05` **Filtros y Revision de Incidentes** | Busqueda y filtros por categoria, urgencia, estado y periodo; detalle con clúster sugerido y linea de seguimiento; seleccion multiple para cambiar estado o asignar a ruta; «Rechazar» con motivo. | `frontend/`, `PATCH /api/incidents/status` |
+| `US-01` **Correo de Bienvenida** | Correo «¡Bienvenido a Recolecta+!» al crear la cuenta (se activa en Configuracion). | `backend/`, `POST /api/register` |
 | `US-06` **Avisos sobre mis Reportes** | Aviso en la app (campana y bandeja «Notificaciones») cada vez que cambia el estado de un reporte enviado con cuenta, y correo cuando pasa a «Resuelto». | `mobile/`, `GET /api/notifications` |
 
 Prototipo de diseno UI/UX validado: [Prototipo en Figma](https://www.figma.com/proto/ay8UeV1wq2jKnHS90bKZz3/Recolecta-?node-id=25-5&t=aOT8hrXgXpSaUAUk-1).
@@ -238,8 +239,22 @@ python cluster_service.py -k 3
 | `POST` | `/api/reports/:id/confirm` | Confirmacion «Sigue ahi» de otro vecino | Cuenta o invitado |
 | `GET` | `/api/incidents` | Listado consolidado para el panel municipal con filtros | No (inicio de sesion del panel: US-10) |
 | `GET` | `/api/incidents/summary` | Indicadores del dia del panel general | No (inicio de sesion del panel: US-10) |
-| `PATCH` | `/api/incidents/:id/status` | Transicion de estado de atencion de incidente; registra el historial y avisa al vecino | No (inicio de sesion del panel: US-10) |
+| `PATCH` | `/api/incidents/:id/status` | Transicion de estado (`pending`, `assigned`, `resolved` o `rejected` con `reason`); registra el historial y avisa al vecino | No (inicio de sesion del panel: US-10) |
 | `PATCH` | `/api/incidents/status` | Cambio de estado de varios incidentes seleccionados (`{ ids, status }`) | No (inicio de sesion del panel: US-10) |
+
+### Panel: Rutas, Analisis, Flota y Configuracion
+
+Trabajo adelantado del Sprint 3 (detalle en [docs/sprint-2/criterios-aceptacion.md](docs/sprint-2/criterios-aceptacion.md)). La ruta por calles usa OSRM sobre OpenStreetMap; `OSRM_URL` en `backend/.env` permite usar un servidor propio.
+
+| Metodo | Endpoint | Descripcion | Autenticacion |
+|:---|:---|:---|:---:|
+| `GET` | `/api/clusters/:id/route` | Ruta por calles (OSRM) de las paradas pendientes o en ruta del cluster | No (inicio de sesion del panel: US-10) |
+| `GET` | `/api/analytics?days=7\|30\|90` | Indicadores del servicio, serie, categorias, estados y ranking de zonas (US-09) | No (inicio de sesion del panel: US-10) |
+| `GET` `POST` | `/api/fleet` | Camiones de la flota y registro de uno nuevo | No (inicio de sesion del panel: US-10) |
+| `PATCH` `DELETE` | `/api/fleet/:id` | Editar estado, conductor o capacidad; eliminar | No (inicio de sesion del panel: US-10) |
+| `POST` | `/api/fleet/:id/assign` `/api/fleet/:id/release` | Asignar el camion a la ruta de un cluster (pasa sus reportes a «En ruta») o liberarlo | No (inicio de sesion del panel: US-10) |
+| `GET` `PATCH` | `/api/settings` | Parametros de K-Means y reglas de correo | No (inicio de sesion del panel: US-10) |
+| `GET` | `/api/users/summary` | Equipo municipal y resumen de vecinos registrados (sin correos) | No (inicio de sesion del panel: US-10) |
 
 ### Avisos del Vecino
 

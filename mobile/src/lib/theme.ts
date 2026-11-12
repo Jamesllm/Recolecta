@@ -23,6 +23,7 @@ export const statusColor: Record<ReportStatus, { fg: string; bg: string }> = {
   pending: { fg: colors.warning, bg: colors.warningTint },
   assigned: { fg: colors.info, bg: colors.infoTint },
   resolved: { fg: colors.primary, bg: colors.primaryTint },
+  rejected: { fg: colors.muted, bg: '#F1F5F9' },
 };
 
 /** Color del marcador: rojo si el punto es crítico (pendiente y de urgencia alta), si no el de su estado. */

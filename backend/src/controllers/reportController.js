@@ -32,7 +32,7 @@ const detectImageType = (buf) => {
 
 const REPORT_COLUMNS = `
     i.id, i.user_id, i.device_id, i.photo_key, i.category, i.estimated_size, i.description, i.address, i.reference,
-    i.gps_accuracy_m, i.status, i.cluster_id, i.resolved_at, i.created_at, i.updated_at,
+    i.gps_accuracy_m, i.status, i.cluster_id, i.resolved_at, i.rejection_reason, i.created_at, i.updated_at,
     ST_X(i.location) AS longitude,
     ST_Y(i.location) AS latitude`;
 
@@ -73,6 +73,7 @@ const toReport = async (row, req, confirmations) => {
     reference: row.reference,
     gps_accuracy_m: row.gps_accuracy_m,
     status: row.status,
+    rejection_reason: row.rejection_reason,
     latitude: row.latitude,
     longitude: row.longitude,
     distance_m: row.distance_m === undefined ? undefined : Math.round(row.distance_m),
@@ -185,7 +186,7 @@ const getNearbyReports = async (req, res, next) => {
        SELECT ${REPORT_COLUMNS},
          ST_Distance(i.location::geography, here.g) AS distance_m
        FROM incidents i, here
-       WHERE ST_DWithin(i.location::geography, here.g, $3) ${filter}
+       WHERE ST_DWithin(i.location::geography, here.g, $3) AND i.status <> 'rejected' ${filter}
        ORDER BY distance_m ASC
        LIMIT 200;`,
       values

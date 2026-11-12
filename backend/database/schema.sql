@@ -126,6 +126,10 @@ CREATE TABLE IF NOT EXISTS incident_confirmations (
 CREATE UNIQUE INDEX IF NOT EXISTS uq_confirmations_user ON incident_confirmations (incident_id, user_id) WHERE user_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_confirmations_device ON incident_confirmations (incident_id, device_id) WHERE device_id IS NOT NULL;
 
+-- Reportes rechazados por el municipio (US-05): duplicados, foto no válida, etc. Guardan el motivo.
+ALTER TYPE incident_status ADD VALUE IF NOT EXISTS 'rejected';
+ALTER TABLE incidents ADD COLUMN IF NOT EXISTS rejection_reason VARCHAR(120);
+
 -- Historial de estados de cada reporte (US-05 y US-06): alimenta la línea de seguimiento
 CREATE TABLE IF NOT EXISTS incident_events (
     id SERIAL PRIMARY KEY,
@@ -167,3 +171,31 @@ CREATE TABLE IF NOT EXISTS password_resets (
     used_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Configuración del panel (pantalla A8, US-10): parámetros de la IA y reglas de automatización
+CREATE TABLE IF NOT EXISTS settings (
+    key VARCHAR(60) PRIMARY KEY,
+    value JSONB NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Flota de recogida (pantalla A6): camiones, conductor, capacidad y ruta (clúster) asignada
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'truck_status') THEN
+        CREATE TYPE truck_status AS ENUM ('available', 'on_route', 'maintenance');
+    END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS trucks (
+    id SERIAL PRIMARY KEY,
+    plate VARCHAR(10) NOT NULL,
+    driver_name VARCHAR(120),
+    capacity_tons REAL NOT NULL CHECK (capacity_tons > 0),
+    status truck_status NOT NULL DEFAULT 'available',
+    cluster_id INTEGER REFERENCES clusters(id) ON DELETE SET NULL,
+    assigned_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_trucks_plate ON trucks (UPPER(plate));

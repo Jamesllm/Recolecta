@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Circle, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { Cluster, Incident, STATUS_LABELS, SIZE_LABELS, clusterRadiusM } from '@/services/api';
+import { Cluster, Incident, STATUS_BADGE, STATUS_LABELS, SIZE_LABELS, clusterRadiusM } from '@/services/api';
 import { AlertCircle, Clock, MapPin, Tag } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 
@@ -124,13 +124,7 @@ export const LeafletHeatMap: React.FC<LeafletHeatMapProps> = ({ incidents, clust
                       Reporte #{incident.code}
                     </span>
                     <span
-                      className={`text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase ${
-                        incident.status === 'pending'
-                          ? 'bg-rose-100 text-rose-700'
-                          : incident.status === 'assigned'
-                          ? 'bg-amber-100 text-amber-700'
-                          : 'bg-emerald-100 text-emerald-700'
-                      }`}
+                      className={`text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase ${STATUS_BADGE[incident.status]}`}
                     >
                       {STATUS_LABELS[incident.status]}
                     </span>

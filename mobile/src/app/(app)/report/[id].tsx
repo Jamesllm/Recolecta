@@ -24,6 +24,7 @@ export default function ReportDetail() {
   if (!report) return <View style={s.center}><ActivityIndicator color={colors.primary} size="large" /></View>;
 
   const rows: [string, string][] = [
+    ...(report.status === 'rejected' ? [['Motivo del rechazo', report.rejection_reason || 'Sin motivo registrado'] as [string, string]] : []),
     ['Tipo de residuo', report.category],
     ['Tamaño estimado', SIZE_LABEL[report.estimated_size]],
     ['Urgencia', report.critical ? 'Crítico (urgencia alta, sin asignar)' : URGENCY_LABEL[report.urgency].replace('Urgencia ', '')],

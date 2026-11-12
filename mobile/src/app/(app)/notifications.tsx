@@ -9,10 +9,11 @@ import { timeAgo } from '@/lib/location';
 import { colors, radius, statusColor } from '@/lib/theme';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const ICON: Record<AppNotification['status'], 'time-outline' | 'car-outline' | 'checkmark-circle-outline'> = {
+const ICON: Record<AppNotification['status'], 'time-outline' | 'car-outline' | 'checkmark-circle-outline' | 'close-circle-outline'> = {
   pending: 'time-outline',
   assigned: 'car-outline',
   resolved: 'checkmark-circle-outline',
+  rejected: 'close-circle-outline',
 };
 
 /** Agrupa los avisos en «Hoy», «Esta semana» y «Anteriores» */

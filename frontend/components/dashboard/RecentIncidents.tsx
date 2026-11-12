@@ -14,6 +14,7 @@ const STATUS_TONE: Record<Incident['status'], string> = {
   pending: 'bg-amber-100 text-amber-700',
   assigned: 'bg-indigo-100 text-indigo-700',
   resolved: 'bg-emerald-100 text-emerald-700',
+  rejected: 'bg-slate-200 text-slate-600',
 };
 
 const timeAgo = (iso: string) => {

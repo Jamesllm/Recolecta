@@ -6,7 +6,7 @@ import { Header } from '@/components/layout/Header';
 import { ClusterCard } from '@/components/routes/ClusterCard';
 import { RoutePanel } from '@/components/routes/RoutePanel';
 import { DynamicRouteMap } from '@/components/maps/DynamicRouteMap';
-import { Cluster, ClusterRun, clusterService, errorMessage, formatDecimal, formatTons, silhouetteLevel } from '@/services/api';
+import { Cluster, ClusterRun, RoadRoute, clusterService, errorMessage, formatDecimal, formatTons, silhouetteLevel } from '@/services/api';
 import { AlertCircle, ChevronRight, Gauge, RefreshCw, Sparkles, Zap } from 'lucide-react';
 
 const TONE_CLASSES = {
@@ -48,6 +48,25 @@ export default function RoutesPage() {
   }, [load]);
 
   const selected = clusters.find((c) => c.id === selectedId) ?? null;
+
+  // Ruta por calles (OSRM) del clúster elegido; se recalcula cuando cambian sus reportes
+  const [route, setRoute] = useState<RoadRoute | null>(null);
+  const [routeError, setRouteError] = useState<string | null>(null);
+  const routeKey = selected ? `${selected.id}:${selected.incidents.map((i) => `${i.id}${i.status}`).join(',')}` : '';
+  useEffect(() => {
+    if (!selected) return;
+    let cancelled = false;
+    setRoute(null);
+    setRouteError(null);
+    clusterService
+      .getRoute(selected.id)
+      .then((r) => !cancelled && setRoute(r))
+      .catch((err) => !cancelled && setRouteError(errorMessage(err)));
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeKey]);
   const maxCount = Math.max(1, ...clusters.map((c) => c.incident_count));
   const quality = silhouetteLevel(run?.silhouette ?? null);
 
@@ -85,7 +104,7 @@ export default function RoutesPage() {
               <span className="font-bold text-slate-900">Última ejecución de K-Means</span>
             </div>
             <span className="text-slate-600">
-              <b className="text-slate-900">K = {run.k}</b> · {run.k_mode === 'auto' ? 'elegido automáticamente por silueta (2 a 8)' : 'indicado por el gestor'}
+              <b className="text-slate-900">K = {run.k}</b> · {run.k_mode === 'auto' ? 'elegido automáticamente por silueta' : 'indicado por el gestor'}
             </span>
             <span className="text-slate-600">
               {run.incident_count} reportes · {run.weighted ? 'ponderados por carga estimada' : 'sin ponderar'}
@@ -143,14 +162,17 @@ export default function RoutesPage() {
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-slate-800">Clúster {selected.code}</span>
                 <span className="text-xs text-slate-500">
-                  {selected.zone ? `${selected.zone} · ` : ''}{selected.incident_count} {selected.incident_count === 1 ? 'reporte' : 'reportes'} · ≈ {formatTons(selected.estimated_tons)} · orden sugerido por cercanía
+                  {selected.zone ? `${selected.zone} · ` : ''}{selected.incident_count} {selected.incident_count === 1 ? 'reporte' : 'reportes'} · ≈ {formatTons(selected.estimated_tons)} · ruta por calles
                 </span>
               </div>
-              <DynamicRouteMap cluster={selected} />
+              {(routeError || route?.warning) && (
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">{routeError ?? route?.warning}</p>
+              )}
+              <DynamicRouteMap cluster={selected} route={route} />
             </div>
 
             <div className="lg:col-span-3 h-full">
-              <RoutePanel cluster={selected} onUpdated={load} />
+              <RoutePanel cluster={selected} route={route} onUpdated={load} />
             </div>
           </div>
         )}

@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { Incident, IncidentStatus, SIZE_LABELS, STATUS_LABELS, URGENCY_LABELS } from '@/services/api';
+import React, { useEffect, useState } from 'react';
+import { Incident, IncidentStatus, REJECTION_REASONS, SIZE_LABELS, STATUS_BADGE, STATUS_LABELS, URGENCY_LABELS } from '@/services/api';
 import { formatDate } from '@/lib/utils';
 import {
   X,
@@ -15,13 +15,14 @@ import {
   AlertTriangle,
   Layers,
   RotateCcw,
+  Ban,
 } from 'lucide-react';
 
 interface IncidentDetailDrawerProps {
   incident: Incident | null;
   isOpen: boolean;
   onClose: () => void;
-  onUpdateStatus: (id: number, status: IncidentStatus) => void;
+  onUpdateStatus: (id: number, status: IncidentStatus, reason?: string) => void;
 }
 
 export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
@@ -30,7 +31,16 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
   onClose,
   onUpdateStatus,
 }) => {
+  // «Rechazar» pide el motivo antes de confirmar (US-05)
+  const [rejecting, setRejecting] = useState(false);
+  const [reason, setReason] = useState('');
+  useEffect(() => {
+    setRejecting(false);
+    setReason('');
+  }, [incident?.id, incident?.status]);
+
   if (!isOpen || !incident) return null;
+  const open = incident.status === 'pending' || incident.status === 'assigned';
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden">
@@ -50,13 +60,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
                   Incidente #{incident.code}
                 </h2>
                 <span
-                  className={`text-xs px-2.5 py-0.5 rounded-full font-bold uppercase ${
-                    incident.status === 'pending'
-                      ? 'bg-rose-100 text-rose-700'
-                      : incident.status === 'assigned'
-                      ? 'bg-amber-100 text-amber-700'
-                      : 'bg-emerald-100 text-emerald-700'
-                  }`}
+                  className={`text-xs px-2.5 py-0.5 rounded-full font-bold uppercase ${STATUS_BADGE[incident.status]}`}
                 >
                   {STATUS_LABELS[incident.status]}
                 </span>
@@ -221,41 +225,90 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
 
           {/* Drawer Footer Actions */}
           <div className="p-6 border-t border-slate-100 bg-slate-50 space-y-2.5">
-            {incident.status !== 'resolved' && (
-              <button
-                onClick={() => onUpdateStatus(incident.id, 'resolved')}
-                className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-2 transition-colors shadow-xs cursor-pointer"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Marcar como resuelto</span>
-              </button>
-            )}
-
-            {incident.status === 'pending' && (
-              <button
-                onClick={() => onUpdateStatus(incident.id, 'assigned')}
-                className="w-full py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
-              >
-                <Truck className="w-4 h-4" />
-                <span>Asignar a ruta</span>
-              </button>
-            )}
-
-            {incident.status !== 'pending' && (
-              <button
-                onClick={() => onUpdateStatus(incident.id, 'pending')}
-                className="w-full py-2.5 px-4 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-semibold rounded-xl text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
-              >
-                <RotateCcw className="w-4 h-4" />
-                <span>Volver a «Pendiente»</span>
-              </button>
-            )}
-
-            {incident.status === 'resolved' && (
-              <div className="p-3 bg-emerald-100 text-emerald-800 rounded-xl text-xs font-medium text-center flex items-center justify-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>Este incidente se encuentra debidamente resuelto.</span>
+            {rejecting ? (
+              <div className="space-y-2.5">
+                <p className="text-xs font-bold text-slate-800">¿Por qué se rechaza este reporte?</p>
+                <div className="space-y-1.5" role="radiogroup" aria-label="Motivo del rechazo">
+                  {REJECTION_REASONS.map((r) => (
+                    <label key={r} className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs cursor-pointer ${reason === r ? 'border-rose-300 bg-rose-50 text-rose-800 font-semibold' : 'border-slate-200 bg-white text-slate-700'}`}>
+                      <input type="radio" name="reject-reason" value={r} checked={reason === r} onChange={() => setReason(r)} className="accent-rose-600" />
+                      <span>{r}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-[11px] text-slate-500">Si el vecino tiene cuenta, recibirá un aviso con el motivo. El reporte deja de mostrarse en el mapa de los vecinos.</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setRejecting(false)}
+                    className="flex-1 py-2.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-semibold rounded-xl text-xs cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={() => onUpdateStatus(incident.id, 'rejected', reason)}
+                    disabled={!reason}
+                    className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-semibold rounded-xl text-xs cursor-pointer"
+                  >
+                    Confirmar rechazo
+                  </button>
+                </div>
               </div>
+            ) : (
+              <>
+                {incident.status === 'pending' && (
+                  <button
+                    onClick={() => onUpdateStatus(incident.id, 'assigned')}
+                    className="w-full py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <Truck className="w-4 h-4" />
+                    <span>Asignar a ruta</span>
+                  </button>
+                )}
+
+                {open && (
+                  <button
+                    onClick={() => onUpdateStatus(incident.id, 'resolved')}
+                    className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-2 transition-colors shadow-xs cursor-pointer"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Marcar como resuelto</span>
+                  </button>
+                )}
+
+                {open && (
+                  <button
+                    onClick={() => setRejecting(true)}
+                    className="w-full py-2.5 px-4 bg-white border border-rose-200 hover:bg-rose-50 text-rose-700 font-semibold rounded-xl text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <Ban className="w-4 h-4" />
+                    <span>Rechazar</span>
+                  </button>
+                )}
+
+                {incident.status === 'resolved' && (
+                  <div className="p-3 bg-emerald-100 text-emerald-800 rounded-xl text-xs font-medium text-center flex items-center justify-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>Este incidente ya fue recolectado.</span>
+                  </div>
+                )}
+
+                {incident.status === 'rejected' && (
+                  <div className="p-3 bg-slate-100 text-slate-700 rounded-xl text-xs font-medium flex items-center gap-1.5">
+                    <Ban className="w-4 h-4 text-slate-500 shrink-0" />
+                    <span>Rechazado. Motivo: {incident.rejection_reason ?? 'sin motivo registrado'}.</span>
+                  </div>
+                )}
+
+                {incident.status !== 'pending' && (
+                  <button
+                    onClick={() => onUpdateStatus(incident.id, 'pending')}
+                    className="w-full py-2.5 px-4 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-semibold rounded-xl text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    <span>Volver a «Pendiente»</span>
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>

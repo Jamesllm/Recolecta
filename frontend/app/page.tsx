@@ -103,7 +103,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Componente Dinámico de Mapa Leaflet */}
-            <DynamicHeatMap incidents={incidents} clusters={clusters} isLoading={isLoading} />
+            <DynamicHeatMap incidents={incidents.filter((i) => i.status !== 'rejected')} clusters={clusters} isLoading={isLoading} />
           </div>
 
           {/* Columna Derecha (30% ~ 4 cols de 12) */}

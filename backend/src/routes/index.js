@@ -9,6 +9,9 @@ const { requireAuth } = require('../middlewares/auth');
 const authController = require('../controllers/authController');
 const passwordController = require('../controllers/passwordController');
 const notificationController = require('../controllers/notificationController');
+const analyticsController = require('../controllers/analyticsController');
+const fleetController = require('../controllers/fleetController');
+const settingsController = require('../controllers/settingsController');
 const incidentRoutes = require('./incidentRoutes');
 const reportRoutes = require('./reportRoutes');
 const clusterRoutes = require('./clusterRoutes');
@@ -48,5 +51,17 @@ router.use('/incidents', incidentRoutes);
 
 // Clústeres K-Means para el panel municipal
 router.use('/clusters', clusterRoutes);
+
+// Análisis (A7, US-09), flota (A6) y configuración (A8, US-10) del panel municipal
+router.get('/analytics', analyticsController.getAnalytics);
+router.get('/fleet', fleetController.getFleet);
+router.post('/fleet', fleetController.createTruck);
+router.patch('/fleet/:id', fleetController.updateTruck);
+router.post('/fleet/:id/assign', fleetController.assignTruck);
+router.post('/fleet/:id/release', fleetController.releaseTruck);
+router.delete('/fleet/:id', fleetController.deleteTruck);
+router.get('/settings', settingsController.getAll);
+router.patch('/settings', settingsController.update);
+router.get('/users/summary', settingsController.usersSummary);
 
 module.exports = router;

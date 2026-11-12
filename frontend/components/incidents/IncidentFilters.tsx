@@ -9,7 +9,7 @@ export interface IncidentFilterValues {
   search: string;
   category: string; // 'all' o una categoría
   urgency: string; // 'all' | 'high' | 'medium' | 'low'
-  status: string; // 'all' | 'pending' | 'assigned' | 'resolved'
+  status: string; // 'all' | 'pending' | 'assigned' | 'resolved' | 'rejected'
   period: string; // 'all' | 'today' | '7' | '30'
 }
 
@@ -76,6 +76,7 @@ export const IncidentFilters: React.FC<IncidentFiltersProps> = ({ values, onChan
             <option value="pending">Pendiente</option>
             <option value="assigned">En ruta</option>
             <option value="resolved">Resuelto</option>
+            <option value="rejected">Rechazado</option>
           </select>
         </div>
 

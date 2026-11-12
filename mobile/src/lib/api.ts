@@ -2,7 +2,7 @@ import { Platform } from 'react-native';
 
 export const API_URL = (process.env.EXPO_PUBLIC_API_URL || '').replace(/\/$/, '');
 
-export type ReportStatus = 'pending' | 'assigned' | 'resolved';
+export type ReportStatus = 'pending' | 'assigned' | 'resolved' | 'rejected';
 export type Category = 'Orgánico' | 'Inorgánico' | 'Escombros' | 'Peligroso';
 export type Size = 'small' | 'medium' | 'large';
 export type Urgency = 'high' | 'medium' | 'low';
@@ -34,6 +34,7 @@ export interface Report {
   reference: string | null;
   gps_accuracy_m: number | null;
   status: ReportStatus;
+  rejection_reason: string | null; // motivo, si el municipio rechazó el reporte
   latitude: number;
   longitude: number;
   distance_m?: number;
@@ -47,7 +48,7 @@ export interface Report {
 
 /** Paso de la línea de seguimiento: recibido → agrupado → en ruta → recolectado (pantalla 14) */
 export interface TimelineStep {
-  key: 'received' | 'grouped' | 'assigned' | 'resolved';
+  key: 'received' | 'grouped' | 'assigned' | 'resolved' | 'rejected';
   label: string;
   done: boolean;
   at: string | null;
@@ -175,6 +176,7 @@ export const STATUS_LABEL: Record<ReportStatus, string> = {
   pending: 'Pendiente',
   assigned: 'En ruta',
   resolved: 'Resuelto',
+  rejected: 'Rechazado',
 };
 
 export const URGENCY_LABEL: Record<Urgency, string> = {

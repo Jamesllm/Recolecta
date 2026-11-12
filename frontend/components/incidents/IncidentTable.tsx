@@ -1,7 +1,10 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Incident, IncidentStatus, STATUS_LABELS } from '@/services/api';
+import { Incident, IncidentStatus, STATUS_BADGE, STATUS_LABELS } from '@/services/api';
+
+// Rechazar exige un motivo, por eso se hace desde el detalle (A4) y no en bloque
+const BULK_STATUSES: IncidentStatus[] = ['pending', 'assigned', 'resolved'];
 import { formatDate } from '@/lib/utils';
 import { Eye, Truck, ChevronLeft, ChevronRight, MapPin, X } from 'lucide-react';
 
@@ -74,7 +77,7 @@ export const IncidentTable: React.FC<IncidentTableProps> = ({
             className="px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-white font-semibold cursor-pointer"
           >
             <option value="">Cambiar estado…</option>
-            {(Object.keys(STATUS_LABELS) as IncidentStatus[]).map((st) => (
+            {BULK_STATUSES.map((st) => (
               <option key={st} value={st}>{STATUS_LABELS[st]}</option>
             ))}
           </select>
@@ -215,19 +218,9 @@ export const IncidentTable: React.FC<IncidentTableProps> = ({
                     {/* Estado */}
                     <td className="py-3.5 px-3">
                       <span
-                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${
-                          incident.status === 'pending'
-                            ? 'bg-rose-100 text-rose-700 border border-rose-200'
-                            : incident.status === 'assigned'
-                            ? 'bg-amber-100 text-amber-700 border border-amber-200'
-                            : 'bg-emerald-100 text-emerald-700 border border-emerald-200'
-                        }`}
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide border ${STATUS_BADGE[incident.status]}`}
                       >
-                        {incident.status === 'pending'
-                          ? 'Pendiente'
-                          : incident.status === 'assigned'
-                          ? 'En Ruta'
-                          : 'Resuelto'}
+                        {STATUS_LABELS[incident.status]}
                       </span>
                     </td>
 

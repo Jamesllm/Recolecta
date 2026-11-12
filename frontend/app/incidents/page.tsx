@@ -73,10 +73,10 @@ export default function IncidentsPage() {
     setIncidents((list) => list.map((i) => byId.get(i.id) ?? i));
   };
 
-  const handleUpdateStatus = async (id: number, status: IncidentStatus) => {
+  const handleUpdateStatus = async (id: number, status: IncidentStatus, reason?: string) => {
     try {
       setError(null);
-      mergeUpdated([await incidentService.updateStatus(id, status)]);
+      mergeUpdated([await incidentService.updateStatus(id, status, reason)]);
     } catch (err) {
       setError(errorMessage(err));
     }
