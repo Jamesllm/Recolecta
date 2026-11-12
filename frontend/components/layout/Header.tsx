@@ -19,7 +19,7 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="bg-white border-b border-slate-200/80 px-8 py-4.5 flex flex-col md:flex-row md:items-center md:justify-between gap-4 sticky top-0 z-20 shadow-xs">
       <div>
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">{title}</h1>
+          <h1 className="font-display text-2xl font-bold tracking-tight text-slate-900">{title}</h1>
           {live ? (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />

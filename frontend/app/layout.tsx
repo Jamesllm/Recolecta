@@ -1,20 +1,14 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { Inter, Space_Grotesk } from 'next/font/google';
 import './globals.css';
 import { Sidebar } from '@/components/layout/Sidebar';
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-});
+// Texto en Inter y cifras y títulos en Space Grotesk (propuesta «Mapa primero»)
+const inter = Inter({ variable: '--font-inter', subsets: ['latin'], display: 'swap' });
+const display = Space_Grotesk({ variable: '--font-display-face', subsets: ['latin'], display: 'swap' });
 
 export const metadata: Metadata = {
-  title: 'Recolecta+ | Panel Administrativo y Centro de Despacho',
+  title: 'Recolecta+ | Panel municipal',
   description: 'Sistema inteligente de gestión de residuos urbanos y optimización geoespacial con IA y PostGIS.',
 };
 
@@ -24,16 +18,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html
-      lang="es"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex bg-[#F8FAFC] text-[#0F172A]">
-        {/* Sidebar Fijo Slate 900 (#0F172A) */}
+    <html lang="es" className={`${inter.variable} ${display.variable} h-full antialiased`}>
+      <body className="min-h-full bg-[#f4f6f3] text-slate-900 font-sans">
+        {/* Riel de navegación flotante */}
         <Sidebar />
 
-        {/* Área Principal de Contenido Dinámico (#F8FAFC) */}
-        <div className="flex-1 flex flex-col min-w-0 min-h-screen bg-[#F8FAFC] overflow-x-hidden">
+        {/* Contenido: deja libre el ancho del riel */}
+        <div className="min-h-screen pl-[104px] flex flex-col min-w-0 overflow-x-hidden">
           <main className="flex-1 flex flex-col">{children}</main>
         </div>
       </body>
