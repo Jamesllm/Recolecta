@@ -2,7 +2,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Link } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
+import { Alert, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import { SelectField, type Option } from '@/components/SelectField';
 import { Banner, Button, TextField } from '@/components/ui';
 import { api, ApiError, titleCase, type UbigeoItem } from '@/lib/api';
@@ -91,6 +91,7 @@ export default function SignUp() {
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={s.container} keyboardShouldPersistTaps="handled">
+        <Image source={require('../../assets/logo.png')} style={s.logo} accessibilityLabel="Recolecta+" />
         <Text style={s.title}>Únete a Recolecta+</Text>
         <Text style={s.subtitle}>Crea tu cuenta para reportar residuos y ayudar a mantener limpio tu distrito.</Text>
 
@@ -128,6 +129,7 @@ export default function SignUp() {
 
 const s = StyleSheet.create({
   container: { flexGrow: 1, padding: 24, gap: 16, backgroundColor: colors.surface },
+  logo: { width: 64, height: 64, resizeMode: 'contain' },
   title: { fontSize: 30, fontWeight: '800', color: colors.ink },
   subtitle: { fontSize: 15, color: colors.muted, lineHeight: 22, marginTop: -6 },
   check: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },

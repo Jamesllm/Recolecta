@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Route, AlertTriangle, Truck, BarChart3, Settings, Trash2 } from 'lucide-react';
+import { LayoutDashboard, Route, AlertTriangle, Truck, BarChart3, Settings } from 'lucide-react';
 import { useDataSource } from '@/lib/useDataSource';
 import { cn } from '@/lib/utils';
 
@@ -33,8 +33,9 @@ export const Sidebar: React.FC = () => {
       aria-label="Menú principal"
       className="app-rail fixed left-4 top-4 bottom-4 z-[1100] w-[76px] bg-white rounded-[22px] shadow-[0_8px_30px_rgba(15,23,42,0.12)] flex flex-col items-center py-4 gap-2"
     >
-      <Link href="/" aria-label="Recolecta+, panel general" className="w-11 h-11 rounded-xl bg-emerald-700 flex items-center justify-center mb-3">
-        <Trash2 className="w-5 h-5 text-white" aria-hidden="true" />
+      <Link href="/" aria-label="Recolecta+, panel general" className="w-12 h-12 flex items-center justify-center mb-3">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo.png" alt="" width={44} height={44} className="w-11 h-11 object-contain" />
       </Link>
 
       {navItems.map((item) => {

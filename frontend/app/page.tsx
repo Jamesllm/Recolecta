@@ -20,7 +20,7 @@ import {
   formatTons,
   incidentService,
 } from '@/services/api';
-import { AlertCircle, CheckCircle2, ChevronDown, ChevronUp, Minimize2, MonitorPlay, RefreshCw, Search, Sparkles, Trash2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ChevronDown, ChevronUp, Minimize2, MonitorPlay, RefreshCw, Search, Sparkles } from 'lucide-react';
 
 const K_OPTIONS: Array<number | 'auto'> = ['auto', 2, 3, 4, 5, 6, 7, 8];
 const PRIORITY_TONE = { Alta: 'bg-rose-100 text-rose-800', Media: 'bg-amber-100 text-amber-800', Baja: 'bg-emerald-100 text-emerald-800' } as const;
@@ -176,9 +176,8 @@ export default function DashboardPage() {
         <div className="pointer-events-none absolute inset-0 z-[1000] flex flex-col gap-4 p-4">
           <div className="flex flex-wrap items-center gap-2.5">
             <div className="pointer-events-auto h-[52px] pl-2 pr-5 bg-white rounded-full shadow-[0_8px_30px_rgba(15,23,42,0.12)] flex items-center gap-3">
-              <span className="w-9 h-9 rounded-full bg-emerald-700 flex items-center justify-center">
-                <Trash2 className="w-[18px] h-[18px] text-white" aria-hidden="true" />
-              </span>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logo.png" alt="" width={38} height={38} className="w-[38px] h-[38px] object-contain" />
               <span className="leading-tight">
                 <b className="block font-display text-[15px] text-slate-900">Recolecta+</b>
                 <span className="block text-[11px] text-slate-500">Monitoreo en vivo</span>
