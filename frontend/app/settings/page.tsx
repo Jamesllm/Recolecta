@@ -1,10 +1,16 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { Header } from '@/components/layout/Header';
-import { PanelSettings, UsersSummary, errorMessage, settingsService } from '@/services/api';
+import { FleetBase, PanelSettings, UsersSummary, errorMessage, settingsService } from '@/services/api';
 import { formatDate } from '@/lib/utils';
-import { AlertCircle, BrainCircuit, CheckCircle2, Mail, Users } from 'lucide-react';
+import { AlertCircle, BrainCircuit, CheckCircle2, Mail, MapPin, Users } from 'lucide-react';
+
+const BasePicker = dynamic(() => import('@/components/maps/LeafletBasePicker'), {
+  ssr: false,
+  loading: () => <div className="w-full h-full bg-[#e9eee6] animate-pulse" aria-hidden="true" />,
+});
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<PanelSettings | null>(null);
@@ -12,11 +18,14 @@ export default function SettingsPage() {
   const [users, setUsers] = useState<UsersSummary | null>(null);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const [saving, setSaving] = useState<keyof PanelSettings | null>(null);
+  // Base elegida en el mapa, antes de guardarla
+  const [draftBase, setDraftBase] = useState<FleetBase | null>(null);
 
   useEffect(() => {
     Promise.all([settingsService.get(), settingsService.users()])
       .then(([s, u]) => {
         setSettings(s.settings);
+        setDraftBase(s.settings.fleet_base);
         setEmailEnabled(s.emailEnabled);
         setUsers(u);
       })
@@ -44,9 +53,9 @@ export default function SettingsPage() {
     <div className="flex flex-col min-h-screen">
       <Header title="Configuración" subtitle="Parámetros de optimización con IA, reglas de automatización y usuarios" />
 
-      <div className="p-8 space-y-6 max-w-[1200px] mx-auto w-full">
+      <div className="py-6 space-y-6 max-w-[1200px] w-full">
         {notice && (
-          <div className={`flex items-center gap-2 px-4 py-3 rounded-xl border text-sm font-medium ${notice.ok ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-rose-200 bg-rose-50 text-rose-700'}`}>
+          <div className={`flex items-center gap-2 px-4 py-3 rounded-2xl text-sm font-medium ${notice.ok ? 'bg-emerald-50 text-emerald-900' : 'bg-rose-50 text-rose-800'}`}>
             {notice.ok ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
             <span>{notice.text}</span>
           </div>
@@ -55,7 +64,7 @@ export default function SettingsPage() {
         {settings && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Parámetros de la IA */}
-            <section className="bg-white rounded-2xl border border-slate-200/80 p-6 space-y-5">
+            <section className="bg-white rounded-[20px] shadow-[0_8px_30px_rgba(15,23,42,0.06)] p-6 space-y-5">
               <h3 className="font-bold text-slate-900 flex items-center gap-2"><BrainCircuit className="w-4 h-4 text-emerald-600" /> Optimización con IA (K-Means)</h3>
               <label className="flex items-center justify-between gap-4 text-sm">
                 <span>
@@ -82,7 +91,7 @@ export default function SettingsPage() {
             </section>
 
             {/* Reglas de automatización */}
-            <section className="bg-white rounded-2xl border border-slate-200/80 p-6 space-y-5">
+            <section className="bg-white rounded-[20px] shadow-[0_8px_30px_rgba(15,23,42,0.06)] p-6 space-y-5">
               <h3 className="font-bold text-slate-900 flex items-center gap-2"><Mail className="w-4 h-4 text-emerald-600" /> Reglas de automatización</h3>
               <Toggle
                 label="Avisar al vecino por correo cuando se resuelva su reporte"
@@ -104,9 +113,58 @@ export default function SettingsPage() {
           </div>
         )}
 
+        {/* Base de la flota */}
+        {settings && (
+          <section className="bg-white rounded-[20px] shadow-[0_8px_30px_rgba(15,23,42,0.06)] p-6 space-y-4">
+            <div>
+              <h3 className="font-bold text-slate-900 flex items-center gap-2"><MapPin className="w-4 h-4 text-emerald-600" /> Base de la flota</h3>
+              <p className="text-xs text-slate-500 mt-1">Punto desde el que salen los camiones en el recorrido simulado (cochera o planta municipal). Toque el mapa para ubicarla.</p>
+            </div>
+            <div className="h-[320px] rounded-2xl overflow-hidden">
+              <BasePicker value={draftBase} onPick={(p) => setDraftBase({ ...p, label: draftBase?.label ?? '' })} />
+            </div>
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="flex-1 min-w-[220px] space-y-1.5 text-sm font-medium text-slate-700">
+                <span>Nombre de la base</span>
+                <input
+                  value={draftBase?.label ?? ''}
+                  disabled={!draftBase}
+                  maxLength={80}
+                  onChange={(e) => draftBase && setDraftBase({ ...draftBase, label: e.target.value })}
+                  placeholder={draftBase ? 'Por ejemplo, cochera municipal' : 'Primero toque el mapa'}
+                  className="w-full h-11 px-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm disabled:opacity-60"
+                />
+              </label>
+              <button
+                type="button"
+                disabled={!draftBase || saving !== null}
+                onClick={() => draftBase && save('fleet_base', { latitude: draftBase.latitude, longitude: draftBase.longitude, label: draftBase.label?.trim() || 'Base de la flota' })}
+                className="h-11 px-5 rounded-full bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white text-sm font-semibold cursor-pointer"
+              >
+                Guardar base
+              </button>
+              {settings.fleet_base && (
+                <button
+                  type="button"
+                  disabled={saving !== null}
+                  onClick={() => { setDraftBase(null); save('fleet_base', null); }}
+                  className="h-11 px-5 rounded-full bg-slate-100 hover:bg-slate-200 text-sm font-semibold cursor-pointer"
+                >
+                  Quitar base
+                </button>
+              )}
+            </div>
+            <p className="text-xs text-slate-500">
+              {settings.fleet_base
+                ? `Guardada: ${settings.fleet_base.label || 'Base de la flota'} (${settings.fleet_base.latitude.toFixed(5)}, ${settings.fleet_base.longitude.toFixed(5)}). Se usa en las próximas asignaciones de camión.`
+                : 'Sin base guardada: los camiones salen de la primera parada de su ruta.'}
+            </p>
+          </section>
+        )}
+
         {/* Usuarios */}
         {users && (
-          <section className="bg-white rounded-2xl border border-slate-200/80 p-6 space-y-5">
+          <section className="bg-white rounded-[20px] shadow-[0_8px_30px_rgba(15,23,42,0.06)] p-6 space-y-5">
             <h3 className="font-bold text-slate-900 flex items-center gap-2"><Users className="w-4 h-4 text-emerald-600" /> Usuarios y roles</h3>
 
             <div>

@@ -123,7 +123,7 @@ export default function IncidentsPage() {
     <div className="flex flex-col min-h-screen">
       <Header title="Gestión de Incidentes" subtitle="Búsqueda, filtros y revisión de los reportes ciudadanos antes de asignarlos a una ruta" />
 
-      <div className="p-8 space-y-6 max-w-[1600px] mx-auto w-full">
+      <div className="py-6 space-y-6 w-full">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <h2 className="text-xl font-bold text-slate-900">Registro Central de Reportes</h2>

@@ -8,6 +8,7 @@ const app = require('./app');
 const os = require('os');
 const { testConnection, pool } = require('./src/config/db');
 const { checkStorageConfig } = require('./src/services/storage');
+const fleetSimulator = require('./src/services/fleetSimulator');
 
 const PORT = parseInt(process.env.PORT, 10) || 3000;
 
@@ -24,6 +25,9 @@ const startServer = async () => {
     console.log(`   - Fotos: ${checkStorageConfig()}`);
 
     // 2. Escuchar en el puerto configurado
+    // Recorrido simulado de los camiones asignados a una ruta (avanza cada 2 s)
+    fleetSimulator.start();
+
     const server = app.listen(PORT, () => {
       console.log(` Servidor Express escuchando activamente en el puerto ${PORT}`);
       console.log(`   - Modo: ${process.env.NODE_ENV || 'development'}`);
@@ -40,6 +44,7 @@ const startServer = async () => {
     // 3. Manejo de señales de terminación segura (Graceful Shutdown)
     const gracefulShutdown = async (signal) => {
       console.log(`\n🛑 Recibida señal ${signal}. Cerrando servidor de forma ordenada...`);
+      fleetSimulator.stop();
       server.close(async () => {
         console.log('  - Servidor HTTP cerrado.');
         try {

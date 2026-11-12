@@ -9,12 +9,13 @@
 const { query } = require('../config/db');
 const { tonsOf } = require('../services/incidentRules');
 const { changeStatus } = require('../services/reportStatus');
+const { buildTrip, liveView } = require('../services/fleetSimulator');
 
 const PLATE_RE = /^[A-Z0-9]{3}-?\d{3}$/; // placas peruanas: ABC-123 o A1B-234
 const STATUS_LABEL = { available: 'Disponible', on_route: 'En ruta', maintenance: 'En mantenimiento' };
 
 const SELECT_TRUCKS = `
-  SELECT t.id, t.plate, t.driver_name, t.capacity_tons, t.status, t.cluster_id, t.assigned_at, t.created_at,
+  SELECT t.id, t.plate, t.driver_name, t.capacity_tons, t.status, t.cluster_id, t.assigned_at, t.created_at, t.trip,
          c.status AS cluster_status,
          (SELECT n.address FROM incidents n WHERE n.cluster_id = c.id AND n.address IS NOT NULL ORDER BY n.location <-> c.centroid LIMIT 1) AS zone,
          COALESCE((SELECT json_agg(json_build_object('estimated_size', i.estimated_size, 'status', i.status))
@@ -40,6 +41,19 @@ const toTruck = (t) => {
     capacity_used_pct: t.cluster_id ? Math.round((load / t.capacity_tons) * 100) : 0,
     assigned_at: t.assigned_at,
     created_at: t.created_at,
+    // Avance del recorrido simulado (null si el camión no tiene recorrido)
+    trip: t.trip
+      ? {
+          state: t.trip.state,
+          stops_total: t.trip.stops.length,
+          stops_collected: t.trip.stops.filter((s) => s.collected_at).length,
+          progress_pct: t.trip.length_m ? Math.round((t.trip.progress_m / t.trip.length_m) * 100) : 100,
+          origin_label: t.trip.origin.label,
+          started_at: t.trip.started_at,
+          finished_at: t.trip.finished_at,
+          eta_end: liveView(t.trip).eta_end,
+        }
+      : null,
   };
 };
 
@@ -116,7 +130,7 @@ const updateTruck = async (req, res, next) => {
     if (errors) return res.status(400).json({ success: false, message: 'Revise los datos del camión.', errors });
     // Al cambiar a «Disponible» o «En mantenimiento» se libera la ruta asignada
     const sets = Object.keys(values).map((k, i) => `${k} = $${i + 2}`);
-    if (values.status) sets.push('cluster_id = NULL', 'assigned_at = NULL');
+    if (values.status) sets.push('cluster_id = NULL', 'assigned_at = NULL', 'trip = NULL');
     if (sets.length) await query(`UPDATE trucks SET ${sets.join(', ')}, updated_at = NOW() WHERE id = $1`, [id, ...Object.values(values)]);
     return res.status(200).json({ success: true, message: `Camión ${truck.plate} actualizado.`, data: toTruck(await findTruck(id)) });
   } catch (error) {
@@ -140,7 +154,10 @@ const assignTruck = async (req, res, next) => {
     const busy = await query("SELECT plate FROM trucks WHERE cluster_id = $1 AND status = 'on_route' AND id <> $2", [clusterId, id]);
     if (busy.rowCount) return res.status(409).json({ success: false, message: `La ruta ya tiene asignado el camión ${busy.rows[0].plate}.` });
 
-    await query("UPDATE trucks SET status = 'on_route', cluster_id = $2, assigned_at = NOW(), updated_at = NOW() WHERE id = $1", [id, clusterId]);
+    // Recorrido por calles desde la base de la flota; el simulador lo hace avanzar en tiempo real
+    const trip = await buildTrip(clusterId);
+    if (!trip) return res.status(409).json({ success: false, message: 'La ruta no tiene reportes por recoger.' });
+    await query("UPDATE trucks SET status = 'on_route', cluster_id = $2, assigned_at = NOW(), trip = $3, updated_at = NOW() WHERE id = $1", [id, clusterId, trip]);
     const pending = await query("SELECT id FROM incidents WHERE cluster_id = $1 AND status = 'pending'", [clusterId]);
     const changed = await changeStatus(pending.rows.map((r) => r.id), 'assigned');
     const code = `C-${String(clusterId).padStart(2, '0')}`;
@@ -160,7 +177,7 @@ const releaseTruck = async (req, res, next) => {
     const id = parseInt(req.params.id, 10);
     const truck = await findTruck(id);
     if (!truck) return res.status(404).json({ success: false, message: 'No se encontró el camión.' });
-    await query("UPDATE trucks SET status = 'available', cluster_id = NULL, assigned_at = NULL, updated_at = NOW() WHERE id = $1", [id]);
+    await query("UPDATE trucks SET status = 'available', cluster_id = NULL, assigned_at = NULL, trip = NULL, updated_at = NOW() WHERE id = $1", [id]);
     return res.status(200).json({ success: true, message: `Camión ${truck.plate} disponible.`, data: toTruck(await findTruck(id)) });
   } catch (error) {
     return next(error);
@@ -179,4 +196,33 @@ const deleteTruck = async (req, res, next) => {
   }
 };
 
-module.exports = { getFleet, createTruck, updateTruck, assignTruck, releaseTruck, deleteTruck };
+/**
+ * Camiones con recorrido simulado: posición actual, de dónde salieron, tramo recorrido y por recorrer,
+ * próxima parada y llegada estimada. Incluye los que terminaron su ruta en la última hora.
+ * Endpoint: GET /api/fleet/live
+ */
+const getLive = async (req, res, next) => {
+  try {
+    const result = await query(`
+      SELECT t.id, t.plate, t.driver_name, t.capacity_tons, t.status, t.cluster_id, t.trip
+        FROM trucks t
+       WHERE t.trip IS NOT NULL
+         AND (t.trip->>'state' <> 'done' OR (t.trip->>'finished_at')::timestamptz > NOW() - INTERVAL '1 hour')
+       ORDER BY t.plate`);
+    const now = Date.now();
+    const data = result.rows.map((t) => ({
+      id: t.id,
+      plate: t.plate,
+      driver_name: t.driver_name,
+      status: t.status,
+      cluster_id: t.cluster_id,
+      cluster_code: t.cluster_id ? `C-${String(t.cluster_id).padStart(2, '0')}` : null,
+      ...liveView(t.trip, now),
+    }));
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+module.exports = { getLive, getFleet, createTruck, updateTruck, assignTruck, releaseTruck, deleteTruck };

@@ -74,7 +74,7 @@ export default function RoutesPage() {
     <div className="flex flex-col min-h-screen">
       <Header title="Rutas con IA" subtitle="Agrupamiento espacial K-Means de los reportes pendientes y orden de recojo sugerido" />
 
-      <div className="p-8 space-y-6 max-w-[1600px] mx-auto w-full">
+      <div className="py-6 space-y-6 w-full">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/80 pb-4">
           <nav className="flex items-center gap-2 text-xs font-medium text-slate-500">
             <Link href="/" className="hover:text-slate-900 transition-colors">Panel general</Link>

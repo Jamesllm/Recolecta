@@ -14,6 +14,17 @@ const DEFINITIONS = {
   // Reglas de automatización
   notify_email_on_resolved: { default: true, validate: (v) => typeof v === 'boolean', error: 'Indique si se avisa por correo (sí o no).' },
   welcome_email: { default: true, validate: (v) => typeof v === 'boolean', error: 'Indique si se envía el correo de bienvenida (sí o no).' },
+  // Base de la flota: punto de salida de los camiones en el recorrido simulado (null: salen de la primera parada)
+  fleet_base: {
+    default: null,
+    validate: (v) =>
+      v === null ||
+      (typeof v === 'object' &&
+        Number.isFinite(v.latitude) && Math.abs(v.latitude) <= 90 &&
+        Number.isFinite(v.longitude) && Math.abs(v.longitude) <= 180 &&
+        (v.label === undefined || (typeof v.label === 'string' && v.label.length <= 80))),
+    error: 'Elija la base de la flota en el mapa (y un nombre de hasta 80 caracteres).',
+  },
 };
 
 const defaults = () => Object.fromEntries(Object.entries(DEFINITIONS).map(([k, d]) => [k, d.default]));

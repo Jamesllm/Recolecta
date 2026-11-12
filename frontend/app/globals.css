@@ -118,6 +118,10 @@ body {
 .home-map .leaflet-container { border-radius: 0; }
 .home-map .leaflet-bottom.leaflet-left { bottom: 236px; left: 104px; }
 .home-map .leaflet-control-attribution { font-size: 10px; }
+/* Modo kiosko: sin riel ni hoja inferior, los controles del mapa bajan a la esquina */
+.home-map.kiosk .leaflet-bottom.leaflet-left { bottom: 8px; left: 8px; }
+body[data-kiosk] .app-rail { display: none; }
+.map-style-control { clear: both; }
 .zone-label {
   background: #ffffff;
   border: 0;

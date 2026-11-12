@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, CircleMarker, useMap } from 'react-leaflet';
+import { MapContainer, Marker, Popup, Polyline, CircleMarker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { Cluster, RoadRoute, STATUS_LABELS, SIZE_LABELS } from '@/services/api';
+import { MapStyleLayer } from './MapStyleLayer';
 
 interface LeafletRouteMapProps {
   cluster: Cluster;
@@ -47,10 +48,7 @@ export const LeafletRouteMap: React.FC<LeafletRouteMapProps> = ({ cluster, route
   return (
     <div className="relative w-full h-[620px] rounded-2xl overflow-hidden border border-slate-200/80 shadow-xs bg-slate-100">
       <MapContainer center={centroid} zoom={15} scrollWheelZoom={true} className="w-full h-full z-10">
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors · Rutas: <a href="https://project-osrm.org">OSRM</a>'
-          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+        <MapStyleLayer position="topright" />
         <FitToRoute points={fitPoints} />
 
         {/* Recorrido por calles y avenidas (OSRM); punteado si solo hay línea recta */}

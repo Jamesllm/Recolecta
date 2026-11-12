@@ -55,6 +55,7 @@ router.use('/clusters', clusterRoutes);
 // Análisis (A7, US-09), flota (A6) y configuración (A8, US-10) del panel municipal
 router.get('/analytics', analyticsController.getAnalytics);
 router.get('/fleet', fleetController.getFleet);
+router.get('/fleet/live', fleetController.getLive);
 router.post('/fleet', fleetController.createTruck);
 router.patch('/fleet/:id', fleetController.updateTruck);
 router.post('/fleet/:id/assign', fleetController.assignTruck);

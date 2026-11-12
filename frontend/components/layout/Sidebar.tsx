@@ -31,7 +31,7 @@ export const Sidebar: React.FC = () => {
   return (
     <nav
       aria-label="Menú principal"
-      className="fixed left-4 top-4 bottom-4 z-[1100] w-[76px] bg-white rounded-[22px] shadow-[0_8px_30px_rgba(15,23,42,0.12)] flex flex-col items-center py-4 gap-2"
+      className="app-rail fixed left-4 top-4 bottom-4 z-[1100] w-[76px] bg-white rounded-[22px] shadow-[0_8px_30px_rgba(15,23,42,0.12)] flex flex-col items-center py-4 gap-2"
     >
       <Link href="/" aria-label="Recolecta+, panel general" className="w-11 h-11 rounded-xl bg-emerald-700 flex items-center justify-center mb-3">
         <Trash2 className="w-5 h-5 text-white" aria-hidden="true" />

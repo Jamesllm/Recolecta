@@ -43,20 +43,20 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
   const open = incident.status === 'pending' || incident.status === 'assigned';
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden">
+    <div className="fixed inset-0 z-[1200] overflow-hidden">
       {/* Backdrop */}
       <div
         onClick={onClose}
-        className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity animate-in fade-in"
+        className="absolute inset-0 bg-slate-900/30 backdrop-blur-[2px] transition-opacity animate-in fade-in"
       />
 
-      <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
-        <div className="w-screen max-w-md bg-white shadow-2xl border-l border-slate-200 flex flex-col justify-between animate-in slide-in-from-right duration-300">
+      <div className="absolute top-4 right-4 bottom-4 flex max-w-[calc(100vw-2rem)]">
+        <div role="dialog" aria-modal="true" aria-label={`Incidente ${incident.code}`} className="w-[460px] max-w-full bg-white rounded-[24px] shadow-[0_24px_60px_rgba(15,23,42,0.25)] flex flex-col justify-between overflow-hidden animate-in slide-in-from-right duration-300">
           {/* Drawer Header */}
-          <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+          <div className="px-6 pt-5 pb-4 border-b border-slate-100 flex items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-slate-900">
+                <h2 className="font-display text-xl font-bold text-slate-900">
                   Incidente #{incident.code}
                 </h2>
                 <span
@@ -72,7 +72,7 @@ export const IncidentDetailDrawer: React.FC<IncidentDetailDrawerProps> = ({
 
             <button
               onClick={onClose}
-              className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+              aria-label="Cerrar" className="w-10 h-10 shrink-0 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>

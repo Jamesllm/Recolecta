@@ -49,7 +49,7 @@ export default function AnalyticsPage() {
     <div className="flex flex-col min-h-screen">
       <Header title="Análisis" subtitle="Indicadores del servicio de recolección por periodo, categoría y zona" />
 
-      <div className="p-8 space-y-6 max-w-[1600px] mx-auto w-full">
+      <div className="py-6 space-y-6 w-full">
         {/* Filtros: periodo */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="inline-flex rounded-xl border border-slate-200 bg-white p-1" role="tablist" aria-label="Periodo">

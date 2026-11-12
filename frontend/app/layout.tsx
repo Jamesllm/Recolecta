@@ -24,7 +24,7 @@ export default function RootLayout({
         <Sidebar />
 
         {/* Contenido: deja libre el ancho del riel */}
-        <div className="min-h-screen pl-[104px] flex flex-col min-w-0 overflow-x-hidden">
+        <div className="min-h-screen pl-[104px] pr-4 flex flex-col min-w-0 overflow-x-hidden">
           <main className="flex-1 flex flex-col">{children}</main>
         </div>
       </body>

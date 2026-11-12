@@ -70,27 +70,35 @@ const straightLine = (ordered) => ({
 });
 
 /**
- * Calcula la ruta que recorre las paradas empezando por la más cercana al centroide del clúster.
+ * Calcula la ruta que recorre las paradas.
+ * Sin `origin`, empieza en la parada más cercana al centroide del clúster (vista de planificación).
+ * Con `origin` (la base de la flota), sale de ese punto y recorre todas las paradas (recorrido del camión).
+ * Devuelve también `leg_m`: la distancia por calles de cada tramo, en orden de visita
+ * (con `origin`, el primer tramo va de la base a la primera parada).
  * @param {{ latitude: number, longitude: number }} centroid
  * @param {Array<{ id: number, latitude: number, longitude: number }>} stops
- * @returns {Promise<{ road: boolean, stops: object[], geometry: [number, number][], distance_m: number, duration_s: number|null, warning?: string }>}
+ * @param {{ origin?: { latitude: number, longitude: number } }} [options]
  */
-const roadRoute = async (centroid, stops) => {
-  if (stops.length === 0) return { road: true, stops: [], geometry: [], distance_m: 0, duration_s: 0 };
-  // Primera parada: la más cercana al centroide; el resto, en el orden que proponga OSRM
-  const byNearness = nearestNeighbor(centroid, stops);
-  if (stops.length === 1) return { road: true, stops: byNearness, geometry: [[byNearness[0].latitude, byNearness[0].longitude]], distance_m: 0, duration_s: 0 };
+const roadRoute = async (centroid, stops, options = {}) => {
+  const origin = options.origin || null;
+  if (stops.length === 0) return { road: true, stops: [], geometry: [], distance_m: 0, duration_s: 0, leg_m: [] };
+  // Orden inicial: vecino más cercano desde la base o desde el centroide
+  const byNearness = nearestNeighbor(origin || centroid, stops);
+  if (stops.length === 1 && !origin) {
+    return { road: true, stops: byNearness, geometry: [[byNearness[0].latitude, byNearness[0].longitude]], distance_m: 0, duration_s: 0, leg_m: [] };
+  }
 
-  const key = `${centroid.latitude},${centroid.longitude}|${stops.map((s) => s.id).sort((a, b) => a - b).join(',')}`;
+  const start = origin ? `${origin.latitude},${origin.longitude}` : `${centroid.latitude},${centroid.longitude}`;
+  const key = `${origin ? 'o' : 'c'}:${start}|${stops.map((s) => s.id).sort((a, b) => a - b).join(',')}`;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.value;
 
   let value;
   try {
-    if (stops.length <= TRIP_MAX) {
+    if (stops.length + (origin ? 1 : 0) <= TRIP_MAX) {
       // OSRM solo admite viajes sin retorno con inicio y fin fijos: termina en la parada más lejana del inicio
-      const first = byNearness[0];
-      const rest = byNearness.slice(1);
+      const first = origin || byNearness[0];
+      const rest = origin ? byNearness : byNearness.slice(1);
       let far = 0;
       rest.forEach((s, i) => { if (distanceM(first, s) > distanceM(first, rest[far])) far = i; });
       const input = [first, ...rest.filter((_, i) => i !== far), rest[far]];
@@ -100,26 +108,36 @@ const roadRoute = async (centroid, stops) => {
       const trip = body.trips[0];
       value = {
         road: true,
-        stops: ordered,
+        stops: origin ? ordered.slice(1) : ordered,
         geometry: trip.geometry.coordinates.map(([lng, lat]) => [lat, lng]),
         distance_m: trip.distance,
         duration_s: trip.duration,
+        leg_m: trip.legs.map((l) => l.distance),
       };
     } else {
       const ordered = byNearness.slice(0, ROUTE_MAX);
-      const body = await osrm(`/route/v1/driving/${coordsOf(ordered)}?geometries=geojson&overview=full`);
+      const points = origin ? [origin, ...ordered] : ordered;
+      const body = await osrm(`/route/v1/driving/${coordsOf(points)}?geometries=geojson&overview=full`);
       const route = body.routes[0];
       value = {
         road: true,
-        stops: byNearness,
+        stops: ordered,
         geometry: route.geometry.coordinates.map(([lng, lat]) => [lat, lng]),
         distance_m: route.distance,
         duration_s: route.duration,
+        leg_m: route.legs.map((l) => l.distance),
       };
     }
   } catch (error) {
     console.warn('[OSRM]: sin ruta por calles, se usa línea recta:', error.message);
-    return { ...straightLine(byNearness), warning: 'No se pudo consultar el servicio de rutas por calles; se muestra el orden en línea recta.' };
+    const points = origin ? [origin, ...byNearness] : byNearness;
+    const line = straightLine(points);
+    return {
+      ...line,
+      stops: byNearness,
+      leg_m: points.slice(1).map((p, i) => distanceM(points[i], p)),
+      warning: 'No se pudo consultar el servicio de rutas por calles; se muestra el orden en línea recta.',
+    };
   }
   cache.set(key, { at: Date.now(), value });
   return value;

@@ -310,7 +310,66 @@ export interface Truck {
   load_tons: number;
   capacity_used_pct: number;
   assigned_at: string | null;
+  trip: TruckTripSummary | null;
 }
+
+/** Resumen del recorrido simulado de un camión */
+export interface TruckTripSummary {
+  state: 'driving' | 'collecting' | 'done';
+  stops_total: number;
+  stops_collected: number;
+  progress_pct: number;
+  origin_label: string;
+  started_at: string;
+  finished_at: string | null;
+  eta_end: string | null;
+}
+
+/** Camión en vivo (GET /api/fleet/live): posición, salida, tramo recorrido y por recorrer */
+export interface LiveTruck {
+  id: number;
+  plate: string;
+  driver_name: string | null;
+  status: TruckStatus;
+  cluster_id: number | null;
+  cluster_code: string | null;
+  state: 'driving' | 'collecting' | 'done';
+  road: boolean;
+  origin: { latitude: number; longitude: number; label: string; is_base: boolean };
+  position: [number, number];
+  heading: number;
+  traveled: [number, number][];
+  remaining: [number, number][];
+  progress_m: number;
+  length_m: number;
+  stops_total: number;
+  stops_collected: number;
+  stops: LiveStop[]; // todas las paradas en orden de visita
+  next_stop: { id: number; code: string; category: string; address: string | null; latitude: number; longitude: number } | null;
+  eta_next: string | null;
+  eta_end: string | null;
+  started_at: string;
+  finished_at: string | null;
+  speed_kmh: number;
+  current_speed_kmh: number; // 0 mientras recoge en una parada
+  dwell_min: number;
+}
+
+/** Parada del recorrido en vivo */
+export interface LiveStop {
+  id: number;
+  code: string;
+  order: number;
+  category: string;
+  latitude: number;
+  longitude: number;
+  state: 'collected' | 'skipped' | 'pending';
+  collected_at: string | null;
+}
+
+/** Hora corta en Lima: 10:42 */
+export const formatClock = (iso: string | null) =>
+  iso ? new Intl.DateTimeFormat('es-PE', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Lima' }).format(new Date(iso)) : '—';
 
 export interface FleetSummary {
   total: number;
@@ -328,6 +387,11 @@ export interface TruckInput {
 }
 
 export const fleetService = {
+  /** Posición en vivo de los camiones con recorrido (se consulta cada pocos segundos) */
+  async live(): Promise<LiveTruck[]> {
+    const response = await call(() => apiClient.get('/fleet/live'));
+    return response.data.data;
+  },
   async list(): Promise<{ summary: FleetSummary; data: Truck[] }> {
     const response = await call(() => apiClient.get('/fleet'));
     return { summary: response.data.summary, data: response.data.data };
@@ -366,6 +430,14 @@ export interface PanelSettings {
   clusters_weighted: boolean;
   notify_email_on_resolved: boolean;
   welcome_email: boolean;
+  fleet_base: FleetBase | null;
+}
+
+/** Base de la flota: punto de salida de los camiones en el recorrido simulado */
+export interface FleetBase {
+  latitude: number;
+  longitude: number;
+  label?: string;
 }
 
 export interface UsersSummary {
@@ -390,6 +462,9 @@ export const settingsService = {
 };
 
 /** Duración legible: 1 h 13 min */
+/** Distancia legible: 850 m o 3,4 km */
+export const formatKm = (m: number) => (m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(1).replace('.', ',')} km`);
+
 export const formatDuration = (s: number) => {
   const min = Math.round(s / 60);
   return min < 60 ? `${min} min` : `${Math.floor(min / 60)} h ${min % 60} min`;

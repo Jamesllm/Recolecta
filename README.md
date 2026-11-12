@@ -251,9 +251,10 @@ Trabajo adelantado del Sprint 3 (detalle en [docs/sprint-2/criterios-aceptacion.
 | `GET` | `/api/clusters/:id/route` | Ruta por calles (OSRM) de las paradas pendientes o en ruta del cluster | No (inicio de sesion del panel: US-10) |
 | `GET` | `/api/analytics?days=7\|30\|90` | Indicadores del servicio, serie, categorias, estados y ranking de zonas (US-09) | No (inicio de sesion del panel: US-10) |
 | `GET` `POST` | `/api/fleet` | Camiones de la flota y registro de uno nuevo | No (inicio de sesion del panel: US-10) |
+| `GET` | `/api/fleet/live` | Camiones en ruta en vivo (simulado): posicion, salida, tramo recorrido y por recorrer, proxima parada y hora estimada | No (inicio de sesion del panel: US-10) |
 | `PATCH` `DELETE` | `/api/fleet/:id` | Editar estado, conductor o capacidad; eliminar | No (inicio de sesion del panel: US-10) |
 | `POST` | `/api/fleet/:id/assign` `/api/fleet/:id/release` | Asignar el camion a la ruta de un cluster (pasa sus reportes a «En ruta») o liberarlo | No (inicio de sesion del panel: US-10) |
-| `GET` `PATCH` | `/api/settings` | Parametros de K-Means y reglas de correo | No (inicio de sesion del panel: US-10) |
+| `GET` `PATCH` | `/api/settings` | Parametros de K-Means, reglas de correo y base de la flota | No (inicio de sesion del panel: US-10) |
 | `GET` | `/api/users/summary` | Equipo municipal y resumen de vecinos registrados (sin correos) | No (inicio de sesion del panel: US-10) |
 
 ### Avisos del Vecino

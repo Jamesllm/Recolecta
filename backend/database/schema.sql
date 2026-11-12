@@ -199,3 +199,7 @@ CREATE TABLE IF NOT EXISTS trucks (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_trucks_plate ON trucks (UPPER(plate));
+
+-- Recorrido simulado del camión (pantalla A6 y panel general): ruta por calles, paradas y avance.
+-- trip = { origin, geometry, cum, length_m, road, stops[], started_at, progress_m, last_tick, dwell_until, state, finished_at }
+ALTER TABLE trucks ADD COLUMN IF NOT EXISTS trip JSONB;
