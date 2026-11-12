@@ -116,6 +116,17 @@ Criterios de aceptacion y estado de cada uno: [docs/sprint-2/criterios-aceptacio
 | `US-01` **Correo de Bienvenida** | Correo «¡Bienvenido a Recolecta+!» al crear la cuenta (se activa en Configuracion). | `backend/`, `POST /api/register` |
 | `US-06` **Avisos sobre mis Reportes** | Aviso en la app (campana y bandeja «Notificaciones») cada vez que cambia el estado de un reporte enviado con cuenta, y correo cuando pasa a «Resuelto». | `mobile/`, `GET /api/notifications` |
 
+**Ampliacion del Sprint 2 · E5 Operacion de la flota** (US-11 a US-16, 29 SP; el sprint pasa de 13 a 42 SP):
+
+| Historia de Usuario | Descripcion Funcional | Capa de Implementacion |
+|:---|:---|:---|
+| `US-11` **Registrar los Camiones** | Registro de camiones (placa, conductor, capacidad) y estados disponible, en ruta y en mantenimiento. | `frontend/` (Flota), `POST /api/fleet` |
+| `US-12` **Asignar y Seguir en Vivo** | Asignar un camion a una zona; ruta por calles desde la base de la flota; mapa en vivo con velocidad, km, paradas numeradas y hora estimada; simulacion si no hay conductor; tipos de mapa. | `frontend/`, `POST /api/fleet/:id/assign`, `GET /api/fleet/live` |
+| `US-13` **Modo Kiosko** | Panel general a pantalla completa con el mapa, los camiones en vivo y cuatro indicadores; se abre con `?kiosko=1`. | `frontend/` (Panel general) |
+| `US-14` **Acceso del Conductor** | El gestor crea la cuenta del conductor (rol `driver`) con contrasena temporal y la enlaza al camion. | `frontend/` (Flota), `POST /api/fleet/:id/driver-account` |
+| `US-15` **Mi Ruta y GPS** | Pantalla «Mi ruta» del conductor: paradas en orden, «Iniciar ruta» y envio de la ubicacion cada 5 s. | `mobile/` (`driver.tsx`), `POST /api/driver/position` |
+| `US-16` **Paradas y Fin de Ruta** | «Recogido» en cada parada (resuelve el reporte y avisa al vecino) y «Terminar ruta». | `mobile/`, `POST /api/driver/stops/:id/collect` |
+
 Prototipo de diseno UI/UX validado: [Prototipo en Figma](https://www.figma.com/proto/ay8UeV1wq2jKnHS90bKZz3/Recolecta-?node-id=25-5&t=aOT8hrXgXpSaUAUk-1).
 
 ---

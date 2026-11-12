@@ -160,9 +160,10 @@ const tick = async () => {
   if (running) return;
   running = true;
   try {
-    // Los recorridos con GPS real (el conductor inició su ruta en la app) no los mueve el simulador
+    // Solo se simulan los camiones sin conductor con cuenta: los que tienen conductor esperan a que
+    // él pulse «Iniciar ruta» en la app y desde ahí avanzan con su GPS real
     const trucks = await query(
-      "SELECT id, trip FROM trucks WHERE status = 'on_route' AND trip IS NOT NULL AND trip->>'state' <> 'done' AND COALESCE(trip->>'source', 'sim') <> 'gps'"
+      "SELECT id, trip FROM trucks WHERE status = 'on_route' AND trip IS NOT NULL AND trip->>'state' <> 'done' AND driver_user_id IS NULL AND COALESCE(trip->>'source', 'sim') <> 'gps'"
     );
     const now = Date.now();
     for (const t of trucks.rows) {

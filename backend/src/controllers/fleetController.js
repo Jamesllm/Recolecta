@@ -211,7 +211,7 @@ const deleteTruck = async (req, res, next) => {
 const getLive = async (req, res, next) => {
   try {
     const result = await query(`
-      SELECT t.id, t.plate, t.driver_name, t.capacity_tons, t.status, t.cluster_id, t.trip
+      SELECT t.id, t.plate, t.driver_name, t.capacity_tons, t.status, t.cluster_id, t.trip, t.driver_user_id
         FROM trucks t
        WHERE t.trip IS NOT NULL
          AND (t.trip->>'state' <> 'done' OR (t.trip->>'finished_at')::timestamptz > NOW() - INTERVAL '1 hour')
@@ -225,6 +225,8 @@ const getLive = async (req, res, next) => {
       cluster_id: t.cluster_id,
       cluster_code: t.cluster_id ? `C-${String(t.cluster_id).padStart(2, '0')}` : null,
       ...liveView(t.trip, now),
+      // Camión con conductor que aún no pulsa «Iniciar ruta»: sigue en la salida, sin simulación
+      awaiting_driver: !!t.driver_user_id && t.trip.source !== 'gps' && t.trip.state !== 'done',
     }));
     return res.status(200).json({ success: true, data });
   } catch (error) {

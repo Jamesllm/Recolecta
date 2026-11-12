@@ -464,7 +464,8 @@ export default function FleetPage() {
 }
 
 /** Origen de la ubicación: GPS del conductor (con señal y si va por la ruta) o simulación */
-const LiveSource: React.FC<{ truck: { source: 'gps' | 'sim'; signal_age_s: number | null; off_route_m: number } }> = ({ truck }) => {
+const LiveSource: React.FC<{ truck: { source: 'gps' | 'sim'; signal_age_s: number | null; off_route_m: number; awaiting_driver: boolean } }> = ({ truck }) => {
+  if (truck.awaiting_driver) return <span className="inline-block mt-1.5 text-[11px] font-semibold text-amber-900 bg-amber-100 rounded-full px-2 py-0.5">Esperando que el conductor inicie la ruta</span>;
   if (truck.source !== 'gps') return <span className="inline-block mt-1.5 text-[11px] font-semibold text-slate-500 bg-slate-100 rounded-full px-2 py-0.5">Recorrido simulado</span>;
   const lost = truck.signal_age_s == null || truck.signal_age_s > 60;
   return (

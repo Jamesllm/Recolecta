@@ -364,6 +364,7 @@ export interface LiveTruck {
   source: 'gps' | 'sim'; // «gps»: ubicación real del teléfono del conductor
   signal_age_s: number | null; // segundos desde la última posición GPS
   off_route_m: number; // distancia a la ruta si el conductor se salió de ella
+  awaiting_driver: boolean; // tiene conductor con cuenta y aún no inicia la ruta en la app
   dwell_min: number;
 }
 
