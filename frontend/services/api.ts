@@ -311,11 +311,20 @@ export interface Truck {
   capacity_used_pct: number;
   assigned_at: string | null;
   trip: TruckTripSummary | null;
+  driver_account: { user_id: number; email: string } | null; // acceso del conductor a la app («Mi ruta»)
+}
+
+/** Credenciales temporales del conductor: se muestran una sola vez */
+export interface DriverCredentials {
+  message: string;
+  email: string;
+  temp_password: string;
 }
 
 /** Resumen del recorrido simulado de un camión */
 export interface TruckTripSummary {
   state: 'driving' | 'collecting' | 'done';
+  source: 'gps' | 'sim';
   stops_total: number;
   stops_collected: number;
   progress_pct: number;
@@ -352,6 +361,9 @@ export interface LiveTruck {
   finished_at: string | null;
   speed_kmh: number;
   current_speed_kmh: number; // 0 mientras recoge en una parada
+  source: 'gps' | 'sim'; // «gps»: ubicación real del teléfono del conductor
+  signal_age_s: number | null; // segundos desde la última posición GPS
+  off_route_m: number; // distancia a la ruta si el conductor se salió de ella
   dwell_min: number;
 }
 
@@ -415,6 +427,19 @@ export const fleetService = {
   },
   async remove(id: number): Promise<string> {
     const response = await call(() => apiClient.delete(`/fleet/${id}`));
+    return response.data.message;
+  },
+  /** Crea la cuenta del conductor (rol «driver») y devuelve su contraseña temporal */
+  async createDriverAccount(id: number, input: { email: string; full_name: string }): Promise<DriverCredentials> {
+    const response = await call(() => apiClient.post(`/fleet/${id}/driver-account`, input));
+    return { message: response.data.message, email: response.data.data.email, temp_password: response.data.data.temp_password };
+  },
+  async resetDriverPassword(id: number): Promise<DriverCredentials> {
+    const response = await call(() => apiClient.post(`/fleet/${id}/driver-account/reset`));
+    return { message: response.data.message, email: response.data.data.email, temp_password: response.data.data.temp_password };
+  },
+  async removeDriverAccount(id: number): Promise<string> {
+    const response = await call(() => apiClient.delete(`/fleet/${id}/driver-account`));
     return response.data.message;
   },
 };

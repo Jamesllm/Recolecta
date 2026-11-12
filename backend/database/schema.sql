@@ -203,3 +203,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_trucks_plate ON trucks (UPPER(plate));
 -- Recorrido simulado del camión (pantalla A6 y panel general): ruta por calles, paradas y avance.
 -- trip = { origin, geometry, cum, length_m, road, stops[], started_at, progress_m, last_tick, dwell_until, state, finished_at }
 ALTER TABLE trucks ADD COLUMN IF NOT EXISTS trip JSONB;
+
+-- Conductores (app móvil, perfil «Mi ruta»): cuenta con rol «driver» enlazada a un camión.
+-- Con la ruta iniciada, la app envía el GPS del teléfono y el recorrido deja de ser simulado (trip.source = 'gps').
+ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'driver';
+ALTER TABLE trucks ADD COLUMN IF NOT EXISTS driver_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_trucks_driver_user ON trucks (driver_user_id) WHERE driver_user_id IS NOT NULL;

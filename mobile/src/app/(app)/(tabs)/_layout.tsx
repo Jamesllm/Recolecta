@@ -1,8 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
+import { useSession } from '@/lib/session';
 import { colors } from '@/lib/theme';
 
 export default function TabsLayout() {
+  const { user } = useSession();
+  // El conductor no reporta: entra directo a «Mi ruta»
+  if (user?.role === 'driver') return <Redirect href="/driver" />;
   return (
     <Tabs
       screenOptions={{

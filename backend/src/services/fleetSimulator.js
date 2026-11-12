@@ -17,6 +17,8 @@ const SPEED_KMH = 25;
 const SPEED_MS = (SPEED_KMH * 1000) / 3600;
 const DWELL_S = 180; // tiempo de carga en cada parada
 const TICK_MS = 2000;
+const ON_ROUTE_M = 80; // más lejos que esto de la ruta, el GPS se marca «fuera de ruta» y no avanza el recorrido
+const STALE_GPS_S = 60; // sin posición en este tiempo, el panel muestra «sin señal»
 
 /** Distancia acumulada en metros en cada punto de la geometría. */
 const cumulative = (geometry) => {
@@ -158,7 +160,10 @@ const tick = async () => {
   if (running) return;
   running = true;
   try {
-    const trucks = await query("SELECT id, trip FROM trucks WHERE status = 'on_route' AND trip IS NOT NULL AND trip->>'state' <> 'done'");
+    // Los recorridos con GPS real (el conductor inició su ruta en la app) no los mueve el simulador
+    const trucks = await query(
+      "SELECT id, trip FROM trucks WHERE status = 'on_route' AND trip IS NOT NULL AND trip->>'state' <> 'done' AND COALESCE(trip->>'source', 'sim') <> 'gps'"
+    );
     const now = Date.now();
     for (const t of trucks.rows) {
       const trip = t.trip;
@@ -187,9 +192,79 @@ const stop = () => {
   timer = null;
 };
 
+/** Punto de la ruta más cercano a `p`: distancia a la ruta y metros recorridos hasta ese punto. */
+const project = (trip, p, fromM = 0) => {
+  const { geometry, cum } = trip;
+  const kLat = 111320;
+  const kLng = 111320 * Math.cos((p.latitude * Math.PI) / 180);
+  let best = { dist: Infinity, at: 0 };
+  for (let i = 0; i < geometry.length - 1; i++) {
+    if (cum[i + 1] < fromM) continue; // no se retrocede en la ruta
+    const ax = geometry[i][1] * kLng, ay = geometry[i][0] * kLat;
+    const bx = geometry[i + 1][1] * kLng, by = geometry[i + 1][0] * kLat;
+    const px = p.longitude * kLng, py = p.latitude * kLat;
+    const dx = bx - ax, dy = by - ay;
+    const len2 = dx * dx + dy * dy || 1;
+    const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / len2));
+    const dist = Math.hypot(px - (ax + dx * t), py - (ay + dy * t));
+    if (dist < best.dist) best = { dist, at: cum[i] + (cum[i + 1] - cum[i]) * t };
+  }
+  return best;
+};
+
+/**
+ * Recorrido real: el conductor inició la ruta en la app. El avance sale de proyectar su GPS sobre la ruta
+ * (solo hacia adelante y si está a menos de ON_ROUTE_M); fuera de la ruta se marca «fuera de ruta».
+ */
+const startGps = (trip, now = Date.now()) => {
+  trip.source = 'gps';
+  trip.state = 'driving';
+  trip.started_at = new Date(now).toISOString();
+  trip.progress_m = 0;
+  trip.last_tick = now;
+  trip.dwell_until = 0;
+  trip.finished_at = null;
+  trip.gps = null;
+  return trip;
+};
+
+const applyGps = (trip, gps, now = Date.now()) => {
+  const near = project(trip, gps, Math.max(0, trip.progress_m - 150));
+  const onRoute = near.dist <= ON_ROUTE_M + Math.min(50, gps.accuracy ?? 0);
+  if (onRoute) trip.progress_m = Math.max(trip.progress_m, Math.min(trip.length_m, near.at));
+  trip.gps = { ...gps, at: new Date(now).toISOString(), off_route_m: onRoute ? 0 : Math.round(near.dist) };
+  trip.last_tick = now;
+  return trip;
+};
+
+/** Marca una parada como recogida (o saltada si el reporte ya no estaba abierto) en un recorrido con GPS. */
+const collectStop = (trip, stopId, open, now = Date.now()) => {
+  const stop = trip.stops.find((s) => s.id === stopId);
+  if (!stop) return null;
+  const at = trip.gps ? Math.round(distanceM(trip.gps, stop)) : null;
+  if (open) stop.collected_at = new Date(now).toISOString();
+  else stop.skipped = true;
+  stop.distance_m = at; // a qué distancia estaba el conductor al marcarla
+  if (stop.at_m > trip.progress_m && at != null && at <= ON_ROUTE_M) trip.progress_m = stop.at_m;
+  return stop;
+};
+
+const finishTrip = (trip, now = Date.now()) => {
+  trip.state = 'done';
+  trip.finished_at = new Date(now).toISOString();
+  return trip;
+};
+
 /** Estado en vivo de un recorrido: posición, tramo recorrido y por recorrer, próxima parada y llegada estimada. */
 const liveView = (trip, now = Date.now()) => {
-  const { position, heading, index } = pointAt(trip, trip.progress_m);
+  const snapped = pointAt(trip, trip.progress_m);
+  const { index } = snapped;
+  const gps = trip.source === 'gps' ? trip.gps : null;
+  const signalAge = gps ? Math.round((now - new Date(gps.at).getTime()) / 1000) : null;
+  const fresh = gps && signalAge <= STALE_GPS_S;
+  // Con GPS el camión se dibuja donde está el teléfono; el tramo recorrido se corta en su punto sobre la ruta
+  const position = gps ? [gps.latitude, gps.longitude] : snapped.position;
+  const heading = gps && gps.heading != null ? gps.heading : snapped.heading;
   const pending = trip.stops.filter((s) => !s.collected_at && !s.skipped);
   const next = pending[0] ?? null;
   const dwellLeft = Math.max(0, (trip.dwell_until - now) / 1000);
@@ -201,8 +276,8 @@ const liveView = (trip, now = Date.now()) => {
     origin: trip.origin,
     position,
     heading,
-    traveled: [...trip.geometry.slice(0, index + 1), position],
-    remaining: trip.state === 'done' ? [] : [position, ...trip.geometry.slice(index + 1)],
+    traveled: [...trip.geometry.slice(0, index + 1), snapped.position],
+    remaining: trip.state === 'done' ? [] : [snapped.position, ...trip.geometry.slice(index + 1)],
     progress_m: trip.progress_m,
     length_m: trip.length_m,
     stops_total: trip.stops.length,
@@ -217,6 +292,7 @@ const liveView = (trip, now = Date.now()) => {
       longitude: s.longitude,
       state: s.collected_at ? 'collected' : s.skipped ? 'skipped' : 'pending',
       collected_at: s.collected_at,
+      address: s.address,
     })),
     next_stop: next && { id: next.id, code: next.code, category: next.category, address: next.address, latitude: next.latitude, longitude: next.longitude },
     eta_next: toNext != null ? new Date(now + toNext * 1000).toISOString() : null,
@@ -225,9 +301,13 @@ const liveView = (trip, now = Date.now()) => {
     finished_at: trip.finished_at,
     speed_kmh: SPEED_KMH,
     // Velocidad en este momento: detenido mientras carga en una parada o al terminar
-    current_speed_kmh: trip.state === 'driving' ? SPEED_KMH : 0,
+    current_speed_kmh: gps ? (fresh ? Math.round(gps.speed_kmh ?? 0) : 0) : trip.state === 'driving' ? SPEED_KMH : 0,
+    // «gps»: posición real del teléfono del conductor; «sim»: recorrido simulado
+    source: trip.source === 'gps' ? 'gps' : 'sim',
+    signal_age_s: signalAge,
+    off_route_m: gps && fresh ? gps.off_route_m || 0 : 0,
     dwell_min: DWELL_S / 60,
   };
 };
 
-module.exports = { start, stop, tick, buildTrip, liveView, SPEED_KMH, DWELL_S };
+module.exports = { start, stop, tick, buildTrip, liveView, startGps, applyGps, collectStop, finishTrip, SPEED_KMH, DWELL_S };

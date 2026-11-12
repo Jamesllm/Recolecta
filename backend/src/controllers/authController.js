@@ -125,7 +125,8 @@ const login = async (req, res, next) => {
     if (!user || !(await bcrypt.compare(password, user.password_hash))) {
       return res.status(401).json({ success: false, message: 'Correo o contraseña incorrectos.' });
     }
-    await claimGuestReports(user.id, req);
+    // Los reportes de invitado del teléfono pasan al vecino; el teléfono de un conductor no se los queda
+    if (user.role === 'citizen') await claimGuestReports(user.id, req);
 
     return res.status(200).json({ success: true, data: { user: publicUser(user), token: signToken(user) } });
   } catch (error) {

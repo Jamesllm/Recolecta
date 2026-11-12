@@ -11,6 +11,19 @@ export interface MapMarker extends LatLng {
   selected?: boolean;
 }
 
+/** Parada de la ruta del conductor: numerada, la próxima resaltada y las recogidas con check */
+export interface MapStop extends LatLng {
+  id: number;
+  order: number;
+  state: 'pending' | 'next' | 'collected' | 'skipped';
+}
+
+/** Ruta por calles: tramo recorrido (gris) y por recorrer (azul), como pares [lat, lng] */
+export interface MapRoute {
+  traveled: [number, number][];
+  remaining: [number, number][];
+}
+
 export interface LeafletMapHandle {
   flyTo: (point: LatLng, zoom?: number) => void;
 }
@@ -21,6 +34,8 @@ interface Props {
   markers?: MapMarker[];
   circle?: { center: LatLng; radius: number } | null;
   user?: LatLng | null;
+  route?: MapRoute | null;
+  stops?: MapStop[];
   interactive?: boolean;
   style?: ViewStyle;
   onMarkerPress?: (id: number) => void;
@@ -39,6 +54,10 @@ const buildHtml = (c: LatLng, zoom: number, interactive: boolean) => `<!DOCTYPE 
   .pin { width: 26px; height: 26px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 3px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.35); cursor: pointer; }
   .pin.sel { width: 34px; height: 34px; }
   .me { width: 16px; height: 16px; border-radius: 50%; background: #2563eb; border: 3px solid #fff; box-shadow: 0 0 0 6px rgba(37,99,235,.25); }
+  .stop { width: 24px; height: 24px; border-radius: 50%; background: #fff; color: #1d4ed8; border: 2px solid #1d4ed8; box-shadow: 0 2px 6px rgba(15,23,42,.25); display: flex; align-items: center; justify-content: center; font: 700 11px system-ui, sans-serif; }
+  .stop.next { width: 30px; height: 30px; background: #1d4ed8; color: #fff; font-size: 12px; }
+  .stop.collected { background: #059669; border-color: #fff; color: #fff; }
+  .stop.skipped { opacity: .45; }
   .leaflet-control-attribution { font-size: 9px; }
 </style>
 </head><body><div id="map"></div>
@@ -58,7 +77,20 @@ const buildHtml = (c: LatLng, zoom: number, interactive: boolean) => `<!DOCTYPE 
     if (msg.type === 'flyTo') { map.flyTo([msg.latitude, msg.longitude], msg.zoom || map.getZoom(), { duration: 0.5 }); return; }
     layer.clearLayers();
     if (msg.circle) L.circle([msg.circle.center.latitude, msg.circle.center.longitude], { radius: msg.circle.radius, color: '#059669', weight: 2, fillColor: '#059669', fillOpacity: 0.08 }).addTo(layer);
-    if (msg.user) L.marker([msg.user.latitude, msg.user.longitude], { icon: L.divIcon({ className: '', html: '<div class="me"></div>', iconSize: [16, 16], iconAnchor: [8, 8] }), interactive: false }).addTo(layer);
+    if (msg.route) {
+      if (msg.route.traveled && msg.route.traveled.length > 1) L.polyline(msg.route.traveled, { color: '#94a3b8', weight: 5, opacity: .9, interactive: false }).addTo(layer);
+      if (msg.route.remaining && msg.route.remaining.length > 1) {
+        L.polyline(msg.route.remaining, { color: '#ffffff', weight: 9, opacity: .9, interactive: false }).addTo(layer);
+        L.polyline(msg.route.remaining, { color: '#1d4ed8', weight: 5, opacity: .95, interactive: false }).addTo(layer);
+      }
+    }
+    for (const st of msg.stops || []) {
+      const size = st.state === 'next' ? 30 : 24;
+      const label = st.state === 'collected' ? '&#10003;' : String(st.order);
+      const icon = L.divIcon({ className: '', html: '<div class="stop ' + st.state + '">' + label + '</div>', iconSize: [size, size], iconAnchor: [size / 2, size / 2] });
+      L.marker([st.latitude, st.longitude], { icon, zIndexOffset: st.state === 'next' ? 500 : 0 }).on('click', (e) => { L.DomEvent.stopPropagation(e); post({ type: 'marker', id: st.id }); }).addTo(layer);
+    }
+    if (msg.user) L.marker([msg.user.latitude, msg.user.longitude], { icon: L.divIcon({ className: '', html: '<div class="me"></div>', iconSize: [16, 16], iconAnchor: [8, 8] }), interactive: false, zIndexOffset: 1000 }).addTo(layer);
     for (const m of msg.markers || []) {
       const s = m.selected ? 34 : 26;
       const icon = L.divIcon({ className: '', html: '<div class="pin' + (m.selected ? ' sel' : '') + '" style="background:' + m.color + '"></div>', iconSize: [s, s], iconAnchor: [s / 2, s] });
@@ -74,12 +106,16 @@ const buildHtml = (c: LatLng, zoom: number, interactive: boolean) => `<!DOCTYPE 
   post({ type: 'ready' });
 </script></body></html>`;
 
+const NO_STOPS: MapStop[] = [];
+
 export function LeafletMap({
   initialCenter,
   initialZoom = 16,
   markers = [],
   circle = null,
   user = null,
+  route = null,
+  stops = NO_STOPS,
   interactive = true,
   style,
   onMarkerPress,
@@ -97,7 +133,7 @@ export function LeafletMap({
     }
   }, []);
 
-  const data = useMemo(() => ({ type: 'data', markers, circle, user }), [markers, circle, user]);
+  const data = useMemo(() => ({ type: 'data', markers, circle, user, route, stops }), [markers, circle, user, route, stops]);
 
   useEffect(() => {
     if (ready.current) send(data);

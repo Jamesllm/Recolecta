@@ -102,6 +102,9 @@ export const LiveTrucksLayer: React.FC<LiveTrucksLayerProps> = ({ trucks, highli
                 <br />
                 {STATE_TEXT[t.state]}{t.cluster_code ? ` · ruta ${t.cluster_code}` : ''}
                 <br />
+                {t.source === 'gps' ? 'Ubicación: GPS del conductor' : 'Ubicación: recorrido simulado'}
+                {t.source === 'gps' && t.off_route_m > 0 ? ` · fuera de ruta ${t.off_route_m} m` : ''}
+                <br />
                 {t.state !== 'done' && <>Velocidad: <b>{t.current_speed_kmh} km/h</b>{t.current_speed_kmh ? '' : ' (detenido)'}<br /></>}
                 Recorrido {formatKm(t.progress_m)} de {formatKm(t.length_m)}
                 {t.state !== 'done' ? ` · faltan ${formatKm(Math.max(0, t.length_m - t.progress_m))}` : ''}

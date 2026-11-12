@@ -21,6 +21,8 @@ export default function AppLayout() {
         <Stack.Screen name="report/sent" options={{ headerShown: false, gestureEnabled: false }} />
         <Stack.Screen name="report/[id]" options={{ title: 'Detalle del reporte' }} />
         <Stack.Screen name="notifications" options={{ title: 'Notificaciones' }} />
+        {/* Perfil del conductor de la flota */}
+        <Stack.Screen name="driver" options={{ headerShown: false }} />
       </Stack>
     </ReportDraftProvider>
   );

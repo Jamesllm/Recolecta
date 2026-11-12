@@ -12,6 +12,7 @@ const notificationController = require('../controllers/notificationController');
 const analyticsController = require('../controllers/analyticsController');
 const fleetController = require('../controllers/fleetController');
 const settingsController = require('../controllers/settingsController');
+const driverController = require('../controllers/driverController');
 const incidentRoutes = require('./incidentRoutes');
 const reportRoutes = require('./reportRoutes');
 const clusterRoutes = require('./clusterRoutes');
@@ -61,6 +62,17 @@ router.patch('/fleet/:id', fleetController.updateTruck);
 router.post('/fleet/:id/assign', fleetController.assignTruck);
 router.post('/fleet/:id/release', fleetController.releaseTruck);
 router.delete('/fleet/:id', fleetController.deleteTruck);
+router.post('/fleet/:id/driver-account', fleetController.createDriverAccount);
+router.post('/fleet/:id/driver-account/reset', fleetController.resetDriverPassword);
+router.delete('/fleet/:id/driver-account', fleetController.removeDriverAccount);
+
+// Perfil del conductor en la app móvil («Mi ruta»): ruta asignada, GPS en vivo y paradas recogidas
+const driverOnly = [requireAuth, driverController.requireDriver];
+router.get('/driver/me', driverOnly, driverController.me);
+router.post('/driver/start', driverOnly, driverController.start);
+router.post('/driver/position', driverOnly, driverController.position);
+router.post('/driver/stops/:incidentId/collect', driverOnly, driverController.collect);
+router.post('/driver/finish', driverOnly, driverController.finish);
 router.get('/settings', settingsController.getAll);
 router.patch('/settings', settingsController.update);
 router.get('/users/summary', settingsController.usersSummary);

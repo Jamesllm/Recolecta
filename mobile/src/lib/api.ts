@@ -11,7 +11,7 @@ export interface User {
   id: number;
   full_name: string;
   email: string;
-  role: 'citizen' | 'manager';
+  role: 'citizen' | 'manager' | 'driver';
   ubigeo: { code: string; distrito: string; provincia: string; departamento: string };
   created_at: string;
 }
@@ -80,6 +80,42 @@ export interface NewReport {
 }
 
 /** Error de la API con los mensajes por campo que devuelve el backend. */
+/** Parada de la ruta del conductor, en orden de visita */
+export interface DriverStop {
+  id: number;
+  code: string;
+  order: number;
+  category: Category;
+  latitude: number;
+  longitude: number;
+  address: string | null;
+  state: 'pending' | 'collected' | 'skipped';
+  collected_at: string | null;
+}
+
+/** Ruta del conductor («Mi ruta»): la arma el panel al asignar el camión a una zona */
+export interface DriverTrip {
+  state: 'driving' | 'collecting' | 'done';
+  source: 'gps' | 'sim'; // «gps» desde que el conductor pulsa «Iniciar ruta»
+  origin: { latitude: number; longitude: number; label: string };
+  traveled: [number, number][];
+  remaining: [number, number][];
+  progress_m: number;
+  length_m: number;
+  stops_total: number;
+  stops_collected: number;
+  stops: DriverStop[];
+  next_stop: { id: number; code: string; category: Category; address: string | null; latitude: number; longitude: number } | null;
+  off_route_m: number;
+  started_at: string;
+  finished_at: string | null;
+}
+
+export interface DriverRoute {
+  truck: { id: number; plate: string; capacity_tons: number; status: 'available' | 'on_route' | 'maintenance'; cluster_code: string | null; zone: string | null } | null;
+  trip: DriverTrip | null;
+}
+
 export class ApiError extends Error {
   constructor(message: string, public status: number, public fields: Record<string, string> = {}) {
     super(message);
@@ -148,6 +184,14 @@ export const api = {
   report: (id: number) => request<{ data: Report }>(`/reports/${id}`),
 
   confirm: (id: number) => request<{ message: string; data: Report }>(`/reports/${id}/confirm`, { method: 'POST' }),
+
+  // Perfil del conductor («Mi ruta»)
+  driverRoute: () => request<{ data: DriverRoute }>('/driver/me'),
+  driverStart: () => request<{ message: string; data: DriverRoute }>('/driver/start', { method: 'POST' }),
+  driverPosition: (p: { latitude: number; longitude: number; accuracy?: number | null; speed?: number | null; heading?: number | null }) =>
+    request<{ data: { progress_m: number; off_route_m: number } }>('/driver/position', { method: 'POST', body: JSON.stringify(p) }),
+  driverCollect: (incidentId: number) => request<{ message: string; data: DriverRoute }>(`/driver/stops/${incidentId}/collect`, { method: 'POST' }),
+  driverFinish: () => request<{ message: string; data: DriverRoute }>('/driver/finish', { method: 'POST' }),
 
   createReport: async (r: NewReport) => {
     const fd = new FormData();

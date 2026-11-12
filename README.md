@@ -251,9 +251,23 @@ Trabajo adelantado del Sprint 3 (detalle en [docs/sprint-2/criterios-aceptacion.
 | `GET` | `/api/clusters/:id/route` | Ruta por calles (OSRM) de las paradas pendientes o en ruta del cluster | No (inicio de sesion del panel: US-10) |
 | `GET` | `/api/analytics?days=7\|30\|90` | Indicadores del servicio, serie, categorias, estados y ranking de zonas (US-09) | No (inicio de sesion del panel: US-10) |
 | `GET` `POST` | `/api/fleet` | Camiones de la flota y registro de uno nuevo | No (inicio de sesion del panel: US-10) |
-| `GET` | `/api/fleet/live` | Camiones en ruta en vivo (simulado): posicion, salida, tramo recorrido y por recorrer, proxima parada y hora estimada | No (inicio de sesion del panel: US-10) |
+| `GET` | `/api/fleet/live` | Camiones en ruta en vivo: posicion (GPS del conductor o simulada), salida, tramo recorrido y por recorrer, proxima parada y hora estimada | No (inicio de sesion del panel: US-10) |
 | `PATCH` `DELETE` | `/api/fleet/:id` | Editar estado, conductor o capacidad; eliminar | No (inicio de sesion del panel: US-10) |
 | `POST` | `/api/fleet/:id/assign` `/api/fleet/:id/release` | Asignar el camion a la ruta de un cluster (pasa sus reportes a «En ruta») o liberarlo | No (inicio de sesion del panel: US-10) |
+| `POST` `DELETE` | `/api/fleet/:id/driver-account` | Crear la cuenta del conductor (rol `driver`, devuelve una contrasena temporal una sola vez) o quitarle el acceso | No (inicio de sesion del panel: US-10) |
+| `POST` | `/api/fleet/:id/driver-account/reset` | Nueva contrasena temporal para el conductor | No (inicio de sesion del panel: US-10) |
+
+### App movil: perfil del conductor («Mi ruta»)
+
+El gestor da acceso al conductor desde Flota; con esa cuenta la app abre «Mi ruta» en lugar de las pestanas del vecino. Al pulsar «Iniciar ruta» el recorrido deja de ser simulado y avanza con el GPS del telefono (se envia cada 5 s solo mientras la ruta esta activa). Con la app en segundo plano el GPS se detiene: para eso hace falta una build propia (development build o APK), no Expo Go.
+
+| Metodo | Ruta | Descripcion | Sesion |
+| --- | --- | --- | --- |
+| `GET` | `/api/driver/me` | Camion del conductor y su ruta: paradas en orden, tramo recorrido y por recorrer | Si, rol `driver` |
+| `POST` | `/api/driver/start` | Inicia la ruta; desde aqui el recorrido usa el GPS del telefono | Si, rol `driver` |
+| `POST` | `/api/driver/position` | Ubicacion del telefono `{ latitude, longitude, accuracy?, speed?, heading? }`; avanza el recorrido si esta a menos de 80 m de la ruta | Si, rol `driver` |
+| `POST` | `/api/driver/stops/:incidentId/collect` | Parada recogida: el reporte pasa a «Resuelto» y el vecino recibe el aviso | Si, rol `driver` |
+| `POST` | `/api/driver/finish` | Termina la ruta; el camion queda disponible | Si, rol `driver` |
 | `GET` `PATCH` | `/api/settings` | Parametros de K-Means, reglas de correo y base de la flota | No (inicio de sesion del panel: US-10) |
 | `GET` | `/api/users/summary` | Equipo municipal y resumen de vecinos registrados (sin correos) | No (inicio de sesion del panel: US-10) |
 
