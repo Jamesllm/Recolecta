@@ -13,6 +13,7 @@ import {
   STATUS_BADGE,
   formatClock,
   formatKm,
+  truckStateLabel,
   STATUS_LABELS,
   clusterPriority,
   clusterService,
@@ -427,7 +428,7 @@ const LiveTrucksCard: React.FC<{ trucks: LiveTruck[]; selectedClusterId: number 
           >
             <span className="flex items-center justify-between gap-2">
               <b className="font-display text-[15px] text-slate-900">{t.plate}</b>
-              <span className="text-[11px] font-semibold text-blue-900">{t.state === 'collecting' ? 'Recogiendo' : 'En camino'}{t.cluster_code ? ` · ${t.cluster_code}` : ''}</span>
+              <span className="text-[11px] font-semibold text-blue-900">{truckStateLabel(t)}{t.cluster_code ? ` · ${t.cluster_code}` : ''}</span>
             </span>
             <span className="block h-1.5 bg-slate-100 rounded-full mt-2 overflow-hidden">
               <span className="block h-full bg-blue-700 rounded-full" style={{ width: `${pct}%` }} />
@@ -437,7 +438,7 @@ const LiveTrucksCard: React.FC<{ trucks: LiveTruck[]; selectedClusterId: number 
               <b className={t.current_speed_kmh ? 'text-blue-900' : 'text-amber-800'}>{t.current_speed_kmh} km/h</b>
             </span>
             <span className="block text-xs text-slate-600">{t.stops_collected}/{t.stops_total} paradas · salió de {t.origin.label}</span>
-            {t.next_stop && <span className="block text-xs text-slate-600">Próxima #{t.next_stop.code} a las {formatClock(t.eta_next)}</span>}
+            {t.next_stop && <span className="block text-xs text-slate-600">Próxima #{t.next_stop.code}{t.eta_next ? ` a las ${formatClock(t.eta_next)}` : ''}</span>}
           </button>
         );
       })}

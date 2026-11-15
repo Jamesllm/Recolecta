@@ -3,7 +3,7 @@
 import React from 'react';
 import { CircleMarker, Marker, Polyline, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
-import { LiveTruck, formatClock, formatKm } from '@/services/api';
+import { LiveTruck, formatClock, formatKm, truckStateLabel } from '@/services/api';
 
 /** Icono del camión: círculo con la flecha del rumbo y la placa debajo */
 const truckIcon = (t: LiveTruck, highlighted: boolean) =>
@@ -100,7 +100,7 @@ export const LiveTrucksLayer: React.FC<LiveTrucksLayerProps> = ({ trucks, highli
               <div className="text-xs">
                 <b>{t.plate}</b>{t.driver_name ? ` · ${t.driver_name}` : ''}
                 <br />
-                {STATE_TEXT[t.state]}{t.cluster_code ? ` · ruta ${t.cluster_code}` : ''}
+                {t.state === 'collecting' ? STATE_TEXT.collecting : truckStateLabel(t)}{t.cluster_code ? ` · ruta ${t.cluster_code}` : ''}
                 <br />
                 {t.source === 'gps' ? 'Ubicación: GPS del conductor' : 'Ubicación: recorrido simulado'}
                 {t.source === 'gps' && t.off_route_m > 0 ? ` · fuera de ruta ${t.off_route_m} m` : ''}
@@ -110,7 +110,7 @@ export const LiveTrucksLayer: React.FC<LiveTrucksLayerProps> = ({ trucks, highli
                 {t.state !== 'done' ? ` · faltan ${formatKm(Math.max(0, t.length_m - t.progress_m))}` : ''}
                 <br />
                 {t.stops_collected}/{t.stops_total} paradas
-                {t.next_stop ? ` · próxima #${t.next_stop.code} a las ${formatClock(t.eta_next)}` : ''}
+                {t.next_stop ? ` · próxima #${t.next_stop.code}${t.eta_next ? ` a las ${formatClock(t.eta_next)}` : ''}` : ''}
               </div>
             </Tooltip>
           </Marker>

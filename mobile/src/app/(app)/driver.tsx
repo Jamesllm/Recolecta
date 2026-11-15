@@ -292,7 +292,9 @@ export default function DriverScreen() {
             {/* Todas las paradas */}
             <Text style={s.section}>Paradas</Text>
             {trip.stops.map((st) => (
-              <Pressable key={st.id} onPress={() => mapRef.current?.flyTo(st, 17)} style={s.stopRow} accessibilityRole="button" accessibilityLabel={`Ver la parada ${st.order} en el mapa`}>
+              // La fila no es un botón: dentro hay dos botones hermanos (ver en el mapa y «Recogido»)
+              <View key={st.id} style={s.stopRow}>
+                <Pressable onPress={() => mapRef.current?.flyTo(st, 17)} style={s.stopMain} accessibilityRole="button" accessibilityLabel={`Ver la parada ${st.order} en el mapa`}>
                 <View style={[s.stopNum, st.state === 'collected' && s.stopDone, st.id === trip.next_stop?.id && s.stopNext, st.state === 'skipped' && { opacity: 0.45 }]}>
                   {st.state === 'collected' ? <Ionicons name="checkmark" size={14} color="#fff" /> : <Text style={[s.stopNumText, st.id === trip.next_stop?.id && { color: '#fff' }]}>{st.order}</Text>}
                 </View>
@@ -302,12 +304,13 @@ export default function DriverScreen() {
                     {st.state === 'collected' ? 'Recogida' : st.state === 'skipped' ? 'Saltada: ya no estaba abierta' : st.address ?? 'Pendiente'}
                   </Text>
                 </View>
+                </Pressable>
                 {started && st.state === 'pending' && st.id !== trip.next_stop?.id && (
                   <Pressable onPress={() => collect(st)} style={s.smallBtn} accessibilityRole="button" accessibilityLabel={`Marcar la parada ${st.order} como recogida`}>
                     {busy === String(st.id) ? <ActivityIndicator size="small" color={colors.primary} /> : <Text style={s.smallBtnText}>Recogido</Text>}
                   </Pressable>
                 )}
-              </Pressable>
+              </View>
             ))}
 
             {started && <Button title="Terminar ruta" variant="secondary" icon="flag-outline" onPress={finish} loading={busy === 'finish'} style={{ marginTop: 8 }} />}
@@ -364,6 +367,7 @@ const s = StyleSheet.create({
   trackText: { fontSize: 13, color: colors.text, fontWeight: '600' },
   section: { fontSize: 13, fontWeight: '700', color: colors.muted, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 6 },
   stopRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.surface, borderRadius: radius.md, padding: 12, borderWidth: 1, borderColor: colors.border },
+  stopMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
   stopNum: { width: 28, height: 28, borderRadius: 14, borderWidth: 2, borderColor: '#1D4ED8', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },
   stopNext: { backgroundColor: '#1D4ED8' },
   stopDone: { backgroundColor: colors.primary, borderColor: colors.primary },

@@ -1,0 +1,11 @@
+node_modules
+npm-debug.log
+.env
+.env.*
+!.env.example
+uploads
+ai/venv
+ai/.env
+ai/notebooks
+**/__pycache__
+**/*.pyc

@@ -381,6 +381,10 @@ export interface LiveStop {
 }
 
 /** Hora corta en Lima: 10:42 */
+/** Estado del camión en vivo para mostrar en tarjetas y mapas */
+export const truckStateLabel = (t: Pick<LiveTruck, 'state' | 'awaiting_driver'>) =>
+  t.state === 'done' ? 'Ruta completada' : t.awaiting_driver ? 'Esperando al conductor' : t.state === 'collecting' ? 'Recogiendo' : 'En camino';
+
 export const formatClock = (iso: string | null) =>
   iso ? new Intl.DateTimeFormat('es-PE', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Lima' }).format(new Date(iso)) : '—';
 

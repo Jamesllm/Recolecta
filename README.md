@@ -22,6 +22,7 @@ Plataforma integral, distribuida y georreferenciada para la fiscalizacion comuni
 - [Arquitectura del Sistema](#arquitectura-del-sistema)
 - [Modulos y Componentes](#modulos-y-componentes)
 - [Entregables del Sprint 1](#entregables-del-sprint-1)
+- [Levantar todo con Docker](#levantar-todo-con-docker)
 - [Requisitos de Infraestructura](#requisitos-de-infraestructura)
 - [Guia de Instalacion y Despliegue](#guia-de-instalacion-y-despliegue)
 - [Especificacion de la API REST](#especificacion-de-la-api-rest)
@@ -128,6 +129,36 @@ Criterios de aceptacion y estado de cada uno: [docs/sprint-2/criterios-aceptacio
 | `US-16` **Paradas y Fin de Ruta** | «Recogido» en cada parada (resuelve el reporte y avisa al vecino) y «Terminar ruta». | `mobile/`, `POST /api/driver/stops/:id/collect` |
 
 Prototipo de diseno UI/UX validado: [Prototipo en Figma](https://www.figma.com/proto/ay8UeV1wq2jKnHS90bKZz3/Recolecta-?node-id=25-5&t=aOT8hrXgXpSaUAUk-1).
+
+---
+
+## Levantar todo con Docker
+
+Con [Docker Desktop](https://www.docker.com/products/docker-desktop/) basta un comando para tener la base de datos, la API (con la IA), el panel y la app web. No hace falta instalar Node, Python ni PostgreSQL.
+
+```bash
+cp .env.example .env
+```
+
+Completar `JWT_SECRET` en `.env` (el archivo explica cómo generarlo) y levantar:
+
+```bash
+docker compose up --build
+```
+
+| Servicio | Dirección | Qué es |
+|:---|:---|:---|
+| `panel` | http://localhost:3000 | Panel municipal (Next.js) |
+| `app` | http://localhost:8081 | App del vecino y del conductor, versión web (Expo + nginx) |
+| `api` | http://localhost:4000/api/health | API REST y servicio de IA (K-Means en Python dentro del mismo contenedor) |
+| `db` | `localhost:5433` | PostgreSQL 16 con PostGIS 3.4 (datos en el volumen `db-data`) |
+
+- Al arrancar, la API crea la base, aplica `backend/database/schema.sql` y carga el ubigeo; se puede reiniciar sin perder datos.
+- Datos de demostración (400 reportes simulados en Chiclayo): `docker compose exec api /opt/venv/bin/python ai/simulate_reports.py --load`. Para borrarlos: `--clear`.
+- Para abrir el panel o la app desde un teléfono de la misma red, poner en `.env` `PUBLIC_HOST=` con la IP de la PC y reconstruir con `docker compose up --build`.
+- La app nativa (Expo Go en el teléfono) se sigue levantando con `npx expo start` en `mobile/`, con `EXPO_PUBLIC_API_URL=http://<IP de la PC>:4000/api`; la API del contenedor la atiende.
+- Antes de levantar los contenedores, detener los servidores de desarrollo que usen los puertos 3000, 4000 u 8081.
+- `docker compose down` los detiene; `docker compose down -v` además borra la base de datos y las fotos.
 
 ---
 

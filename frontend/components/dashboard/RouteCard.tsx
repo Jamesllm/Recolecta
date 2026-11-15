@@ -13,6 +13,7 @@ import {
   formatDuration,
   formatKm,
   formatTons,
+  truckStateLabel,
   incidentService,
 } from '@/services/api';
 import { AlertCircle, ArrowRight, CheckCircle2 } from 'lucide-react';
@@ -116,7 +117,7 @@ export const RouteCard: React.FC<RouteCardProps> = ({ cluster, route, liveTruck,
         <div className="rounded-2xl bg-blue-50 p-3.5 space-y-1.5 text-xs text-slate-700">
           <p className="flex items-center justify-between gap-2">
             <b className="font-display text-sm text-slate-900">{liveTruck.plate} en vivo</b>
-            <span className="font-semibold text-blue-900">{liveTruck.state === 'collecting' ? 'Recogiendo' : 'En camino'}</span>
+            <span className="font-semibold text-blue-900">{truckStateLabel(liveTruck)}</span>
           </p>
           <span className="block h-2 bg-white rounded-full overflow-hidden">
             <span className="block h-full bg-blue-700 rounded-full" style={{ width: `${liveTruck.length_m ? Math.min(100, (liveTruck.progress_m / liveTruck.length_m) * 100) : 100}%` }} />
@@ -126,7 +127,7 @@ export const RouteCard: React.FC<RouteCardProps> = ({ cluster, route, liveTruck,
             <span>Recorrido <b className="text-slate-900">{formatKm(liveTruck.progress_m)}</b> de {formatKm(liveTruck.length_m)}</span>
           </p>
           <p>{liveTruck.stops_collected}/{liveTruck.stops_total} paradas recogidas · salió de <b>{liveTruck.origin.label}</b> a las {formatClock(liveTruck.started_at)}</p>
-          {liveTruck.next_stop && <p>Próxima: <b>#{liveTruck.next_stop.code}</b> a las {formatClock(liveTruck.eta_next)} · termina ≈ {formatClock(liveTruck.eta_end)}</p>}
+          {liveTruck.next_stop && <p>Próxima: <b>#{liveTruck.next_stop.code}</b> {liveTruck.eta_next ? ` a las ${formatClock(liveTruck.eta_next)} · termina ≈ ${formatClock(liveTruck.eta_end)}` : ''}</p>}
         </div>
       ) : assignedTruck && (
         <p className="text-xs text-slate-600 bg-slate-50 rounded-lg px-3 py-2">

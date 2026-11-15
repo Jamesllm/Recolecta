@@ -217,17 +217,22 @@ const getLive = async (req, res, next) => {
          AND (t.trip->>'state' <> 'done' OR (t.trip->>'finished_at')::timestamptz > NOW() - INTERVAL '1 hour')
        ORDER BY t.plate`);
     const now = Date.now();
-    const data = result.rows.map((t) => ({
+    const data = result.rows.map((t) => {
+      const awaiting = !!t.driver_user_id && t.trip.source !== 'gps' && t.trip.state !== 'done';
+      const live = liveView(t.trip, now);
+      return {
       id: t.id,
       plate: t.plate,
       driver_name: t.driver_name,
       status: t.status,
       cluster_id: t.cluster_id,
       cluster_code: t.cluster_id ? `C-${String(t.cluster_id).padStart(2, '0')}` : null,
-      ...liveView(t.trip, now),
-      // Camión con conductor que aún no pulsa «Iniciar ruta»: sigue en la salida, sin simulación
-      awaiting_driver: !!t.driver_user_id && t.trip.source !== 'gps' && t.trip.state !== 'done',
-    }));
+      ...live,
+      // Camión con conductor que aún no pulsa «Iniciar ruta»: sigue en la salida, detenido y sin horas estimadas
+      awaiting_driver: awaiting,
+      ...(awaiting ? { current_speed_kmh: 0, eta_next: null, eta_end: null } : {}),
+      };
+    });
     return res.status(200).json({ success: true, data });
   } catch (error) {
     return next(error);

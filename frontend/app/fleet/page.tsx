@@ -19,6 +19,7 @@ import {
   formatClock,
   formatKm,
   formatTons,
+  truckStateLabel,
   settingsService,
 } from '@/services/api';
 import { AlertCircle, CheckCircle2, Copy, KeyRound, MapPin, Plus, RefreshCw, Satellite, Smartphone, Trash2, Truck as TruckIcon, Wrench } from 'lucide-react';
@@ -232,8 +233,8 @@ export default function FleetPage() {
               >
                 <span className="flex items-center justify-between gap-2">
                   <b className="font-display text-base">{t.plate}</b>
-                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${t.state === 'done' ? 'bg-slate-200 text-slate-700' : t.state === 'collecting' ? 'bg-amber-100 text-amber-900' : 'bg-blue-100 text-blue-900'}`}>
-                    {t.state === 'done' ? 'Ruta completada' : t.state === 'collecting' ? 'Recogiendo' : 'En camino'}
+                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${t.state === 'done' ? 'bg-slate-200 text-slate-700' : t.state === 'collecting' || t.awaiting_driver ? 'bg-amber-100 text-amber-900' : 'bg-blue-100 text-blue-900'}`}>
+                    {truckStateLabel(t)}
                   </span>
                 </span>
                 <span className="block text-xs text-slate-500 mt-0.5">{t.driver_name ?? 'Sin conductor'}{t.cluster_code ? ` · ruta ${t.cluster_code}` : ''}</span>
@@ -250,7 +251,7 @@ export default function FleetPage() {
                   Salió de <b>{t.origin.label}</b> a las {formatClock(t.started_at)}
                 </span>
                 {t.next_stop ? (
-                  <span className="block text-xs text-slate-600">Próxima: <b>#{t.next_stop.code}</b> ({t.next_stop.category}) a las {formatClock(t.eta_next)} · fin {formatClock(t.eta_end)}</span>
+                  <span className="block text-xs text-slate-600">Próxima: <b>#{t.next_stop.code}</b> ({t.next_stop.category}){t.eta_next ? ` a las ${formatClock(t.eta_next)} · fin ${formatClock(t.eta_end)}` : ''}</span>
                 ) : (
                   <span className="block text-xs text-slate-600">Terminó a las {formatClock(t.finished_at)}</span>
                 )}

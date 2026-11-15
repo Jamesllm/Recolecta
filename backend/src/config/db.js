@@ -6,11 +6,15 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
+// SSL hacia PostgreSQL: por defecto solo en producción. DB_SSL=false lo apaga (p. ej., PostGIS local en Docker).
+const useSsl = process.env.DB_SSL ? process.env.DB_SSL === 'true' : process.env.NODE_ENV === 'production';
+const ssl = useSsl ? { rejectUnauthorized: false } : false;
+
 // Configuración del Pool de conexiones usando variables de entorno
 const poolConfig = process.env.DATABASE_URL
   ? {
       connectionString: process.env.DATABASE_URL,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+      ssl,
     }
   : {
       host: process.env.DB_HOST || 'localhost',
@@ -21,7 +25,7 @@ const poolConfig = process.env.DATABASE_URL
       max: 20, // Máximo de conexiones concurrentes en el pool
       idleTimeoutMillis: 30000, // Tiempo antes de cerrar conexión inactiva (30s)
       connectionTimeoutMillis: 5000, // Tiempo máximo de espera para obtener conexión (5s)
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+      ssl,
     };
 
 const pool = new Pool(poolConfig);
