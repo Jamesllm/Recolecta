@@ -17,7 +17,7 @@ Cada criterio sigue el formato **Dado / Cuando / Entonces** y cumple cuatro regl
 
 El número entre paréntesis es la pantalla del prototipo en Figma (APF2, Tabla 17). Las pantallas del conductor (C1 a C3) son nuevas.
 
-**Estado al 11/11/2026:** ✅ Hecho · 🟡 Parcial · ⏳ Pendiente
+**Estado al 14/11/2026:** ✅ Hecho · 🟡 Parcial · ⏳ Pendiente
 
 ---
 
@@ -37,11 +37,11 @@ El número entre paréntesis es la pantalla del prototipo en Figma (APF2, Tabla 
 | 4 | el ciudadano está en «Iniciar sesión» (04) | ingresa un correo o una contraseña incorrectos y toca «Iniciar sesión» | ve el mensaje «Correo o contraseña incorrectos.» y sigue en la misma pantalla sin sesión iniciada | ✅ |
 | 5 | el ciudadano olvidó su contraseña | toca «¿Olvidaste tu contraseña?», escribe su correo y toca «Enviar enlace» (06) | la app muestra «Si el correo está registrado, te enviamos un enlace para crear una nueva contraseña» y, si la cuenta existe, el sistema envía a ese correo un enlace que caduca en 30 minutos | ✅ |
 | 6 | el ciudadano abrió el enlace del correo antes de que caduque | escribe dos veces una nueva contraseña válida y toca «Guardar contraseña» | ve «Tu contraseña se actualizó», puede iniciar sesión solo con la nueva contraseña, y si vuelve a abrir el mismo enlace ve «El enlace caducó o ya se usó» | ✅ |
-| 7 | la regla «Enviar correo de bienvenida al crear una cuenta» está activa en «Configuración» (A8) | el ciudadano crea su cuenta (criterio 1) | recibe en su correo el mensaje «¡Bienvenido a Recolecta+!», que explica cómo reportar y cómo le llegarán los avisos | 🟡 |
+| 7 | la regla «Enviar correo de bienvenida al crear una cuenta» está activa en «Configuración» (A8) | el ciudadano crea su cuenta (criterio 1) | recibe en su correo el mensaje «¡Bienvenido a Recolecta+!», que explica cómo reportar y cómo le llegarán los avisos | ✅ |
 
 **Notas**
 - Criterio 5: verificado con Gmail (el correo de recuperación llega).
-- Criterio 7 (🟡): el correo se envía al registrarse; falta comprobar que llegue con una cuenta de correo real.
+- Criterio 7: verificado el 14/11/2026 por el Product Owner con una cuenta de correo real.
 - El mensaje del criterio 5 es el mismo exista o no la cuenta, para no revelar qué correos están registrados.
 - Para abrir el enlace desde el teléfono, `PUBLIC_URL` debe apuntar a la IP de la PC en la red Wi-Fi.
 
@@ -85,11 +85,11 @@ El número entre paréntesis es la pantalla del prototipo en Figma (APF2, Tabla 
 | 2 | el ciudadano tiene avisos | toca la campana y abre «Notificaciones» (15) | ve sus avisos del más reciente al más antiguo, agrupados en «Hoy», «Esta semana» y «Anteriores», con los no leídos resaltados con un punto verde | ✅ |
 | 3 | el ciudadano está en «Notificaciones» (15) | toca el aviso de uno de sus reportes | el aviso pasa a leído, baja el número de la campana y se abre el «Detalle del reporte» (14) con su línea de seguimiento: reporte recibido, agrupado en una zona prioritaria, asignado a una ruta y recolectado, con la fecha de cada paso cumplido | ✅ |
 | 4 | el ciudadano tiene avisos sin leer | toca «Marcar leídas» en «Notificaciones» (15) | todos sus avisos pasan a leídos y la campana deja de mostrar el número | ✅ |
-| 5 | la regla «Avisar al vecino por correo cuando se resuelva su reporte» está activa en «Configuración» (A8) | un reporte del ciudadano pasa a «Resuelto» | además del aviso en la app, el ciudadano recibe en el correo de su cuenta el mensaje «Tu reporte RL-XXXX fue atendido» | 🟡 |
+| 5 | la regla «Avisar al vecino por correo cuando se resuelva su reporte» está activa en «Configuración» (A8) | un reporte del ciudadano pasa a «Resuelto» | además del aviso en la app, el ciudadano recibe en el correo de su cuenta el mensaje «Tu reporte RL-XXXX fue atendido» | ✅ |
 | 6 | el municipio aplica a un reporte el estado que ya tenía, o el reporte se envió como invitado | guarda el cambio | no se genera ningún aviso (no hay avisos duplicados ni avisos para quien no tiene cuenta) | ✅ |
 
 **Notas**
-- Criterio 5 (🟡): el correo se envía solo al pasar a «Resuelto» y la regla se activa o desactiva en «Configuración» (A8). Falta comprobar que llegue con una cuenta de correo real.
+- Criterio 5: verificado el 14/11/2026 por el Product Owner con una cuenta de correo real. El correo se envía solo al pasar a «Resuelto» y la regla se activa o desactiva en «Configuración» (A8).
 - Si el reporte se rechaza, el aviso dice «Tu reporte RL-XXXX no fue aceptado» con el motivo, y el detalle (14) muestra «Rechazado por el municipio» en la línea de seguimiento.
 - El invitado no recibe avisos (no hay a quién enviarlos), pero sigue viendo el estado de sus reportes en «Mis reportes».
 
@@ -227,14 +227,14 @@ Los códigos de pantalla con «C» (C1 a C3) son nuevos, porque el prototipo del
 |---|---|---|---|---|
 | 1 | el conductor inició sesión y su camión no tiene una ruta asignada | abre «Mi ruta» (C1) | ve «Sin ruta asignada», con la explicación «Cuando la central asigne tu camión a una zona, verás aquí las paradas en orden y podrás iniciar la ruta.» y el botón «Actualizar» | ✅ |
 | 2 | el panel asignó una zona a su camión (US-12) | el conductor abre «Mi ruta» (C2) | ve el mapa con el recorrido y las paradas numeradas, la zona, el avance («0/58 paradas · 0,0 km de 12,5 km · sale de Depósito municipal») y el botón «Iniciar ruta». La ruta aparece sola como máximo 10 segundos después de asignarla | ✅ |
-| 3 | el conductor está en «Mi ruta» (C2) con una ruta asignada | toca «Iniciar ruta», confirma y permite el acceso a su ubicación | la app muestra «Compartiendo ubicación · hace N s · ±N m» y envía su posición cada 5 segundos. En el panel (A1 y A6), el camión se mueve con su posición real, con la etiqueta «GPS del conductor» y su velocidad real | 🟡 |
+| 3 | el conductor está en «Mi ruta» (C2) con una ruta asignada | toca «Iniciar ruta», confirma y permite el acceso a su ubicación | la app muestra «Compartiendo ubicación · hace N s · ±N m» y envía su posición cada 5 segundos. En el panel (A1 y A6), el camión se mueve con su posición real, con la etiqueta «GPS del conductor» y su velocidad real | ✅ |
 | 4 | el conductor tocó «Iniciar ruta» | no permite el acceso a su ubicación | la app muestra «Sin permiso de ubicación: la central no puede ver tu camión. Actívalo en los ajustes del teléfono.» | ✅ |
-| 5 | la ruta está en curso (C3) | el conductor se aleja más de 80 m del recorrido | la app muestra «Estás a N m de la ruta. Vuelve al recorrido azul para que el avance se registre.», el panel muestra «Fuera de ruta · N m» y el avance no sube hasta que vuelva a la ruta | 🟡 |
+| 5 | la ruta está en curso (C3) | el conductor se aleja más de 80 m del recorrido | la app muestra «Estás a N m de la ruta. Vuelve al recorrido azul para que el avance se registre.», el panel muestra «Fuera de ruta · N m» y el avance no sube hasta que vuelva a la ruta | ✅ |
 | 6 | la ruta está en curso | el panel deja de recibir la ubicación por más de 60 segundos (sin señal o con la app cerrada) | el panel muestra «GPS sin señal hace N min» y la velocidad en 0 km/h | ✅ |
-| 7 | la ruta está en curso (C3) | el conductor revisa la tarjeta de la próxima parada | ve el número de la parada de un total («Próxima parada · 13 de 58»), el código, la categoría, la dirección y la distancia («A 120 m», o «Estás en la parada» si está a 60 m o menos). «Cómo llegar» abre Google Maps con la ruta en auto hasta esa parada | 🟡 |
+| 7 | la ruta está en curso (C3) | el conductor revisa la tarjeta de la próxima parada | ve el número de la parada de un total («Próxima parada · 13 de 58»), el código, la categoría, la dirección y la distancia («A 120 m», o «Estás en la parada» si está a 60 m o menos). «Cómo llegar» abre Google Maps con la ruta en auto hasta esa parada | ✅ |
 
 **Notas**
-- Criterios 3, 5 y 7 (🟡): la lógica está probada contra la API con posiciones de prueba. Falta comprobarlos en un teléfono con GPS real, porque el navegador de pruebas no tiene GPS.
+- Criterios 3, 5 y 7: verificados el 14/11/2026 por el Product Owner en un teléfono con GPS real. Antes se probaron contra la API con posiciones de prueba.
 - El GPS solo se envía con la app abierta. Para que siga enviándose con la pantalla apagada hace falta una build propia de la app (development build o APK); Expo Go no lo permite. Queda para el Sprint 3.
 - Al tocar «Iniciar ruta», el recorrido de ese camión deja de ser simulado (US-12, criterio 6).
 
@@ -250,7 +250,7 @@ Los códigos de pantalla con «C» (C1 a C3) son nuevos, porque el prototipo del
 
 | # | Dado | Cuando | Entonces | Estado |
 |---|---|---|---|---|
-| 1 | la ruta está en curso y el conductor está a 60 m o menos de la próxima parada | toca «Recogido» | la parada pasa a un check verde, el reporte pasa a «Resuelto» y el vecino recibe el aviso «Tu reporte RL-XXXX fue atendido» (US-06). La app muestra «Parada #RL-XXXX recogida. El vecino recibió el aviso.», el avance sube («13/58 paradas») y la tarjeta pasa a la siguiente parada | 🟡 |
+| 1 | la ruta está en curso y el conductor está a 60 m o menos de la próxima parada | toca «Recogido» | la parada pasa a un check verde, el reporte pasa a «Resuelto» y el vecino recibe el aviso «Tu reporte RL-XXXX fue atendido» (US-06). La app muestra «Parada #RL-XXXX recogida. El vecino recibió el aviso.», el avance sube («13/58 paradas») y la tarjeta pasa a la siguiente parada | ✅ |
 | 2 | el conductor está a más de 60 m de la parada, o la app aún no tiene su ubicación | toca «Recogido» | la app pregunta «¿Recogiste la parada N?» con la distancia a la que está, y solo la marca si confirma con «Sí, recogido» | ✅ |
 | 3 | la ruta está en curso | el conductor toca «Recogido» en otra parada de la lista, fuera de orden | esa parada se marca como recogida y la próxima parada no cambia | ✅ |
 | 4 | el municipio ya resolvió o rechazó el reporte de una parada | el conductor la marca como recogida | la app muestra «La parada #RL-XXXX ya no estaba abierta y se saltó.» y la parada aparece atenuada como «Saltada: ya no estaba abierta» | ✅ |
@@ -258,7 +258,7 @@ Los códigos de pantalla con «C» (C1 a C3) son nuevos, porque el prototipo del
 | 6 | la ruta está en curso | el conductor toca «Terminar ruta» y confirma | la app muestra «Ruta terminada. ¡Buen trabajo!», o «Ruta terminada. Quedaron N paradas sin recoger; el gestor las verá en el panel.» si faltaron paradas. El camión vuelve a «Disponible», la app deja de enviar la ubicación y «Mi ruta» muestra el resumen «Recogiste X de Y paradas» | ✅ |
 
 **Notas**
-- Criterio 1 (🟡): «Recogido» se probó sin GPS, pasando por la pregunta del criterio 2. Falta probar en un teléfono que, estando a 60 m o menos, la parada se marque sin preguntar.
+- Criterio 1: verificado el 14/11/2026 por el Product Owner en un teléfono con GPS real: estando a 60 m o menos, la parada se marca sin preguntar.
 - Con cada «Recogido», la app guarda a qué distancia estaba el conductor de la parada. Eso sirve para revisar después si se marcó desde lejos.
 - Las paradas que quedan sin recoger al terminar la ruta siguen «En ruta» en el panel, para asignarlas a otro camión.
 - Criterios 4, 5 y 6: probados contra la API con el camión de prueba TST-002. El criterio 3 se probó en la versión web de la app.
@@ -280,12 +280,12 @@ Son propuestas que debe aprobar el Product Owner antes de llevarlas al informe:
 
 ## Lo que falta para cerrar el Sprint 2
 
+Todos los criterios de las nueve historias están en ✅ (verificados por el Product Owner el 14/11/2026). Falta el trabajo del equipo en Jira:
+
 | Historia | Pendiente | Qué se necesita |
 |---|---|---|
-| US-01 y US-06 | Comprobar que llegan el correo de bienvenida y el de «Resuelto» | Crear una cuenta con un correo real y resolver uno de sus reportes |
-| US-15 y US-16 | Probar con GPS real los criterios 3, 5 y 7 de la US-15 y el criterio 1 de la US-16 | Instalar la app en un teléfono (con `mobile/.env` apuntando a la IP de la PC), iniciar la ruta y caminar o manejar hasta una parada |
 | US-11 a US-16 | Registrarlas en Jira (épica E5) y confirmar los SP propuestos | Lo hace el equipo en el Planning Poker |
-| Todas | Verificar los criterios con un usuario y pasar las tareas a «Listo» en Jira | Lo hace el equipo (Definición de Terminado) |
+| Todas | Pasar las tareas a «Listo» en Jira y presentar las nueve historias en la Sprint Review | Lo hace el equipo (Definición de Terminado) |
 
 ## Alcance y velocity del Sprint 2
 
@@ -293,21 +293,21 @@ La velocity solo cuenta las historias que tienen todos sus criterios en ✅.
 
 | Historia | SP | Criterios ✅ | ¿Suma a la velocity hoy? |
 |---|---|---|---|
-| US-01 · Registro e inicio de sesión | 3 | 6 de 7 | No: falta el correo de bienvenida |
+| US-01 · Registro e inicio de sesión | 3 | 7 de 7 | Sí |
 | US-05 · Filtros y revisión de incidentes | 5 | 7 de 7 | Sí |
-| US-06 · Avisos sobre mis reportes | 5 | 5 de 6 | No: falta el correo de «Resuelto» |
+| US-06 · Avisos sobre mis reportes | 5 | 6 de 6 | Sí |
 | US-11 · Registrar los camiones | 3 | 4 de 4 | Sí |
 | US-12 · Asignar y seguir en vivo | 8 | 9 de 9 | Sí |
 | US-13 · Modo kiosko | 2 | 5 de 5 | Sí |
 | US-14 · Acceso del conductor | 3 | 5 de 5 | Sí |
-| US-15 · «Mi ruta» y GPS | 8 | 4 de 7 | No: falta probar con GPS real |
-| US-16 · Paradas y fin de ruta | 5 | 5 de 6 | No: falta probar con GPS real |
-| **Total** | **42** | | **21 SP hoy; 42 SP si se cierran los pendientes** |
+| US-15 · «Mi ruta» y GPS | 8 | 7 de 7 | Sí |
+| US-16 · Paradas y fin de ruta | 5 | 6 de 6 | Sí |
+| **Total** | **42** | **56 de 56** | **42 SP** |
 
 - **Comprometido al inicio:** 13 SP.
 - **Agregado a mitad del sprint:** 29 SP.
-- **Terminado hoy:** 21 SP (US-05, US-11, US-12, US-13 y US-14).
-- **Si se verifican los correos y el GPS en el teléfono:** 42 SP.
+- **Terminado:** 42 SP, las nueve historias.
+- **Velocity del Sprint 2:** 42 SP. De esos, 13 SP son del compromiso inicial y 29 SP de la ampliación; conviene mostrarlos por separado en el burndown y en la Review.
 
 ---
 
