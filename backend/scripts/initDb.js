@@ -40,18 +40,23 @@ async function upsert(db, table, cols, key, rows) {
 }
 
 (async () => {
-  const admin = new Client({ ...cfg, database: 'postgres' });
-  await admin.connect();
-  const exists = await admin.query('SELECT 1 FROM pg_database WHERE datname = $1', [dbName]);
-  if (!exists.rowCount) {
-    await admin.query(`CREATE DATABASE "${dbName.replace(/"/g, '')}"`);
-    console.log(`Base de datos ${dbName} creada.`);
-  } else {
-    console.log(`Base de datos ${dbName} ya existe.`);
+  // Con DATABASE_URL (p. ej., Neon) la base ya existe: solo se aplica el esquema y se carga el ubigeo
+  if (!process.env.DATABASE_URL) {
+    const admin = new Client({ ...cfg, database: 'postgres' });
+    await admin.connect();
+    const exists = await admin.query('SELECT 1 FROM pg_database WHERE datname = $1', [dbName]);
+    if (!exists.rowCount) {
+      await admin.query(`CREATE DATABASE "${dbName.replace(/"/g, '')}"`);
+      console.log(`Base de datos ${dbName} creada.`);
+    } else {
+      console.log(`Base de datos ${dbName} ya existe.`);
+    }
+    await admin.end();
   }
-  await admin.end();
 
-  const db = new Client({ ...cfg, database: dbName });
+  const db = process.env.DATABASE_URL
+    ? new Client({ connectionString: process.env.DATABASE_URL })
+    : new Client({ ...cfg, database: dbName });
   await db.connect();
   await db.query(fs.readFileSync(path.join(__dirname, '..', 'database', 'schema.sql'), 'utf8'));
   const { rows } = await db.query('SELECT postgis_lib_version() AS v');

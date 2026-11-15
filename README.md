@@ -134,13 +134,13 @@ Prototipo de diseno UI/UX validado: [Prototipo en Figma](https://www.figma.com/p
 
 ## Levantar todo con Docker
 
-Con [Docker Desktop](https://www.docker.com/products/docker-desktop/) basta un comando para tener la base de datos, la API (con la IA), el panel y la app web. No hace falta instalar Node, Python ni PostgreSQL.
+Con [Docker Desktop](https://www.docker.com/products/docker-desktop/) basta un comando para tener la API (con la IA), el panel y la app web. No hace falta instalar Node ni Python. La base de datos es PostgreSQL con PostGIS en [Neon](https://neon.tech), así que no se levanta un contenedor de base.
 
 ```bash
 cp .env.example .env
 ```
 
-Completar `JWT_SECRET` en `.env` (el archivo explica cómo generarlo) y levantar:
+Completar en `.env` la cadena de conexión de Neon (`DATABASE_URL`) y `JWT_SECRET` (el archivo explica cómo generarlo), y levantar:
 
 ```bash
 docker compose up --build
@@ -151,14 +151,13 @@ docker compose up --build
 | `panel` | http://localhost:3000 | Panel municipal (Next.js) |
 | `app` | http://localhost:8081 | App del vecino y del conductor, versión web (Expo + nginx) |
 | `api` | http://localhost:4000/api/health | API REST y servicio de IA (K-Means en Python dentro del mismo contenedor) |
-| `db` | `localhost:5433` | PostgreSQL 16 con PostGIS 3.4 (datos en el volumen `db-data`) |
 
-- Al arrancar, la API crea la base, aplica `backend/database/schema.sql` y carga el ubigeo; se puede reiniciar sin perder datos.
+- Al arrancar, la API aplica `backend/database/schema.sql` en Neon (activa PostGIS y crea las tablas que falten) y carga el ubigeo; se puede reiniciar sin perder datos.
 - Datos de demostración (400 reportes simulados en Chiclayo): `docker compose exec api /opt/venv/bin/python ai/simulate_reports.py --load`. Para borrarlos: `--clear`.
 - Para abrir el panel o la app desde un teléfono de la misma red, poner en `.env` `PUBLIC_HOST=` con la IP de la PC y reconstruir con `docker compose up --build`.
 - La app nativa (Expo Go en el teléfono) se sigue levantando con `npx expo start` en `mobile/`, con `EXPO_PUBLIC_API_URL=http://<IP de la PC>:4000/api`; la API del contenedor la atiende.
 - Antes de levantar los contenedores, detener los servidores de desarrollo que usen los puertos 3000, 4000 u 8081.
-- `docker compose down` los detiene; `docker compose down -v` además borra la base de datos y las fotos.
+- `docker compose down` los detiene; `docker compose down -v` además borra las fotos guardadas en local (los datos siguen en Neon).
 
 ---
 
