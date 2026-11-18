@@ -3,7 +3,8 @@
 FROM node:22-bookworm-slim
 
 # Python 3.11 de Debian y las librerías del agrupamiento en un entorno virtual
-RUN apt-get update \
+RUN echo 'Acquire::http::User-Agent "Mozilla/5.0";' > /etc/apt/apt.conf.d/99user-agent \
+ && apt-get update \
  && apt-get install -y --no-install-recommends python3 python3-venv \
  && rm -rf /var/lib/apt/lists/*
 COPY ai/requirements.txt /tmp/ai-requirements.txt

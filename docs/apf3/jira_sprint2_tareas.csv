@@ -1,0 +1,27 @@
+﻿Summary,Issue Type,Description,Assignee,Original Estimate,Labels,Labels,Labels,Status
+US-01 · Pantallas de acceso en la app,Tarea,"Pantallas «Crear cuenta» (05) e «Iniciar sesión» (04), con la selección de departamento, provincia y distrito.",Víctor Reyes,18000,US01,Sprint2,victor-reyes,Listo
+US-01 · Registro e inicio de sesión en la API,Tarea,"POST /api/register y /api/login con JWT; contraseña de 8 caracteres o más, con una letra y un número; correo único.",Ángel Salas,18000,US01,Sprint2,angel-salas,Listo
+US-01 · Recuperación de contraseña,Tarea,Enlace por correo que caduca en 30 minutos y página para crear la nueva contraseña.,Ronal Llapapasca,14400,US01,Sprint2,ronal-llapapasca,Listo
+US-01 · Correos del sistema,Tarea,"Envío por SMTP (Gmail) y correo de bienvenida, que se activa en Configuración (A8).",Ronal Llapapasca,10800,US01,Sprint2,ronal-llapapasca,Listo
+US-05 · Filtros de incidentes,Tarea,"Búsqueda y filtros combinados por categoría, urgencia, estado y periodo en «Incidentes» (A3).",Víctor Reyes,18000,US05,Sprint2,victor-reyes,Listo
+US-05 · Detalle del incidente,Tarea,"Panel lateral (A4) con foto, datos, clúster sugerido y línea de seguimiento.",Danna Miñan,14400,US05,Sprint2,danna-minan,Listo
+US-05 · Acciones en lote,Tarea,Selección múltiple y cambio de estado de varios incidentes (PATCH /api/incidents/status).,Víctor Reyes,10800,US05,Sprint2,victor-reyes,Listo
+US-05 · «Rechazar» con motivo,Tarea,Rechazo con un motivo de una lista fija; el incidente sale del mapa y de las rutas.,Danna Miñan,10800,US05,Sprint2,danna-minan,Listo
+US-06 · Historial de estados y avisos,Tarea,Tablas de historial y de avisos; se crea un aviso por cada cambio de estado de un reporte con cuenta.,Ángel Salas,18000,US06,Sprint2,angel-salas,Listo
+US-06 · Campana y «Notificaciones»,Tarea,Contador de no leídos en el mapa y bandeja de avisos agrupada por fecha (15).,Víctor Reyes,18000,US06,Sprint2,victor-reyes,Listo
+US-06 · Línea de seguimiento,Tarea,Pasos del reporte con su fecha en «Detalle del reporte» (14).,Danna Miñan,10800,US06,Sprint2,danna-minan,Listo
+US-06 · Correo de «Resuelto»,Tarea,Correo «Tu reporte fue atendido» según la regla de Configuración (A8).,Ronal Llapapasca,7200,US06,Sprint2,ronal-llapapasca,Listo
+US-04 · Mejora del modelo K-Means,Tarea,"Coordenadas en metros, peso por carga estimada y elección de K por silueta.",Ángel Salas,18000,US04,Sprint2,angel-salas,Listo
+US-04 · Evaluación del modelo,Tarea,"Notebook con dataset simulado, métricas, prueba 80/20 y comparación con DBSCAN.",Ronal Llapapasca,21600,US04,Sprint2,ronal-llapapasca,Listo
+US-11 · Registro de camiones,Tarea,API de la flota y formulario «Registrar camión» con validación de placa y capacidad.,Ángel Salas,14400,US11,Sprint2,angel-salas,Listo
+US-11 · Estados de la flota,Tarea,"Tabla de camiones con estados disponible, en ruta y en mantenimiento.",Danna Miñan,10800,US11,Sprint2,danna-minan,Listo
+US-12 · Ruta por calles,Tarea,"Orden de las paradas y trazado por calles y avenidas con OSRM, desde la base de la flota.",Ronal Llapapasca,18000,US12,Sprint2,ronal-llapapasca,Listo
+US-12 · Recorrido en tiempo real,Tarea,Simulación del recorrido (25 km/h y 3 min por parada) para los camiones sin conductor.,Ángel Salas,21600,US12,Sprint2,angel-salas,Listo
+US-12 · Mapa en vivo,Tarea,"Camión con velocidad y km, tramo recorrido y por recorrer, y paradas numeradas en Flota (A6) y el panel general.",Víctor Reyes,21600,US12,Sprint2,victor-reyes,Listo
+US-12 · Base de la flota y tipos de mapa,Tarea,"Punto de salida en Configuración (A8) y selector de mapa (calles, relieve, satélite).",Danna Miñan,10800,US12,Sprint2,danna-minan,Listo
+US-13 · Modo kiosko,Tarea,Panel general a pantalla completa con lo esencial; se abre con ?kiosko=1 y se sale con Esc.,Danna Miñan,10800,US13,Sprint2,danna-minan,Listo
+US-14 · Rol y cuenta del conductor,Tarea,"Rol «conductor», cuenta enlazada al camión y contraseña temporal.",Ángel Salas,14400,US14,Sprint2,angel-salas,Listo
+US-14 · Acceso desde Flota,Tarea,"«Dar acceso a la app», «Nueva contraseña» y «Quitar acceso» en la tabla de camiones.",Danna Miñan,10800,US14,Sprint2,danna-minan,Listo
+US-15 · Pantalla «Mi ruta»,Tarea,"Mapa con el recorrido y las paradas en orden, avance y botón «Iniciar ruta».",Víctor Reyes,21600,US15,Sprint2,victor-reyes,Listo
+US-15 · GPS en vivo,Tarea,Envío de la ubicación cada 5 s y proyección sobre la ruta; «fuera de ruta» a más de 80 m.,Ronal Llapapasca,18000,US15,Sprint2,ronal-llapapasca,Listo
+US-16 · «Recogido» y fin de ruta,Tarea,"«Recogido» con confirmación por distancia (60 m), paradas saltadas y «Terminar ruta».",Danna Miñan,14400,US16,Sprint2,danna-minan,Listo
